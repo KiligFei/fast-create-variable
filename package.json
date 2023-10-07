@@ -33,6 +33,35 @@
   "activationEvents": [
     "onStartupFinished"
   ],
+  "contributes": {
+    "menus": {
+      "editor/context": [
+        {
+          "when": "editorFocus && editorLangId == 'vue'",
+          "command": "fast-create-variable.select",
+          "group": "6_px"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "fast-create-variable.select",
+        "title": "fast create variable"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "fast-create-variable.select",
+        "key": "cmd+c",
+        "when": "isMac && editorLangId == 'vue'"
+      },
+      {
+        "command": "fast-create-variable.select",
+        "key": "ctrl+c",
+        "when": "!isMac && editorLangId == 'vue'"
+      }
+    ]
+  },
   "scripts": {
     "dev": "pnpm build --watch",
     "test": "vitest",
@@ -49,6 +78,7 @@
     "@types/node": "^18.15.11",
     "@types/vscode": "^1.77.0",
     "@vscode-use/utils": "^0.0.43",
+    "@vue/compiler-sfc": "^3.3.4",
     "bumpp": "^9.1.0",
     "eslint": "^8.37.0",
     "esno": "^0.16.3",
