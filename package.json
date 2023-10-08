@@ -52,12 +52,12 @@
     "keybindings": [
       {
         "command": "fast-create-variable.select",
-        "key": "cmd+c",
+        "key": "cmd+g",
         "when": "isMac && editorLangId == 'vue'"
       },
       {
         "command": "fast-create-variable.select",
-        "key": "ctrl+c",
+        "key": "ctrl+g",
         "when": "!isMac && editorLangId == 'vue'"
       }
     ]
