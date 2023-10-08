@@ -47,10 +47,9 @@ export function activate(context: ExtensionContext) {
 
         updateTextWord = emptySetupMatch[0].replace('</script>', '\n</script>')
 
-        const { line: line1, column: column1 } = getPosition(emptySetupMatch.index!)
-        const { line: line2, column: column2 } = getPosition(emptySetupMatch.index! + emptySetupMatch[0].length)
+        const { line, column } = getPosition(emptySetupMatch.index!)
         updateEmptySetup = () => updateText((edit) => {
-          edit.replace(createRange([line1, column1 - 1], [line2, column2]), updateTextWord)
+          edit.replace(createRange([line, column - 1], getPosition(emptySetupMatch.index! + emptySetupMatch[0].length)), updateTextWord)
         })
       }
       const {
