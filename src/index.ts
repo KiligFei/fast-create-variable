@@ -210,7 +210,7 @@ export function activate(context: ExtensionContext) {
                 if (!_v)
                   return
                 insertText = `const ${title} = ref(${_v})`
-                jumpLine = [endLine, insertText.length - 3]
+                jumpLine = [endLine, insertText.length - 2]
                 break
               }
               case 'reactive': {
@@ -246,7 +246,7 @@ export function activate(context: ExtensionContext) {
           updateEmptySetup && updateEmptySetup()
           nextTick(() => {
             updateText((edit) => {
-              edit.insert(insertPos, insertText + (getLineText(insertPos.line) ? '\n' : ''))
+              edit.insert(insertPos, insertText + (scriptSetup ? (getLineText(insertPos.line) ? '\n' : '') : ''))
             })
             nextTick(() => {
               message.info(msg)
