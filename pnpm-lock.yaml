@@ -18,8 +18,8 @@ importers:
         specifier: ^1.77.0
         version: 1.77.0
       '@vscode-use/utils':
-        specifier: ^0.0.43
-        version: 0.0.43
+        specifier: ^0.0.45
+        version: 0.0.45
       '@vue/compiler-sfc':
         specifier: ^3.3.4
         version: 3.3.4
@@ -721,8 +721,8 @@ packages:
       pretty-format: 27.5.1
     dev: true
 
-  /@vscode-use/utils@0.0.43:
-    resolution: {integrity: sha512-7Ex5M3cu7p8h05s4oOQYgX/p2P3xV0NWWa8+w5ckN4i4aXukb7HtLXzsv92kGYpHWbqPUSwjU6HIrNN3VQtvmQ==}
+  /@vscode-use/utils@0.0.45:
+    resolution: {integrity: sha512-uJZjiXh2MKoE5ZxQEhgmt3mmlIT3PuqxyKi6KcKzN17y1Jnu07RHu9uszhQkQz9wxbHosTNu72Jv9uYUqTCZag==}
     engines: {vscode: ^1.77.0}
     dev: true
 
