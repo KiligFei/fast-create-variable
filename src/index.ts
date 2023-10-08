@@ -1,4 +1,4 @@
-import { createSelect, getActiveText, getPosition, getSelection, jumpToLine, message, nextTick, registerCommand, updateText } from '@vscode-use/utils'
+import { createRange, createSelect, getActiveText, getLineText, getPosition, getSelection, jumpToLine, message, nextTick, registerCommand, updateText } from '@vscode-use/utils'
 import { parse } from '@vue/compiler-sfc'
 import type { ExtensionContext } from 'vscode'
 import { Position } from 'vscode'
@@ -34,10 +34,30 @@ export function activate(context: ExtensionContext) {
         message.error('变量名不符合规范')
         return
       }
+      let activeText = getActiveText()!
+      const emptySetupMatch = activeText.match(/<script.*setup[^>]*>([\n\s]*)<\/script>/)
+      let updateEmptySetup: () => void
+      if (emptySetupMatch) {
+        const v = emptySetupMatch[1]
+        let updateTextWord = ''
+        if (v)
+          activeText = activeText.replace(v, '\n// hi')
+        else
+          activeText = activeText.replace('</script>', '\n// hi</script>')
+
+        updateTextWord = emptySetupMatch[0].replace('</script>', '\n</script>')
+
+        const { line: line1, column: column1 } = getPosition(emptySetupMatch.index!)
+        const { line: line2, column: column2 } = getPosition(emptySetupMatch.index! + emptySetupMatch[0].length)
+        updateEmptySetup = () => updateText((edit) => {
+          edit.replace(createRange([line1, column1 - 1], [line2, column2]), updateTextWord)
+        })
+      }
       const {
         descriptor: { script, scriptSetup },
         errors,
-      } = parse(getActiveText()!)
+      } = parse(activeText)
+
       const options = scriptSetup
         ? ['ref', 'computed', 'function', 'computed', 'reactive']
         : ['data', 'methods', 'computed', 'watch']
@@ -189,7 +209,7 @@ export function activate(context: ExtensionContext) {
                 })
                 if (!_v)
                   return
-                insertText = `const ${title} = ref(${_v})\n`
+                insertText = `const ${title} = ref(${_v})`
                 jumpLine = [endLine, insertText.length - 3]
                 break
               }
@@ -202,17 +222,17 @@ export function activate(context: ExtensionContext) {
                 })
                 if (!_v)
                   return
-                insertText = `const ${title} = reactive(${_v})\n`
+                insertText = `const ${title} = reactive(${_v})`
                 jumpLine = [endLine, insertText.length - 2]
                 break
               }
               case 'function': {
-                insertText = `const ${title} = () => {\n  \n}\n`
+                insertText = `const ${title} = () => {\n  \n}`
                 jumpLine = [endLine + 1, insertText.length - 2]
                 break
               }
               case 'computed': {
-                insertText = `const ${title} = computed(() => {\n  \n})\n`
+                insertText = `const ${title} = computed(() => {\n  \n})`
                 jumpLine = [endLine + 1, insertText.length - 2]
                 break
               }
@@ -223,12 +243,15 @@ export function activate(context: ExtensionContext) {
           else {
             return
           }
-          updateText((edit) => {
-            edit.insert(insertPos, insertText)
-          })
+          updateEmptySetup && updateEmptySetup()
           nextTick(() => {
-            message.info(msg)
-            jumpToLine(jumpLine)
+            updateText((edit) => {
+              edit.insert(insertPos, insertText + (getLineText(insertPos.line) ? '\n' : ''))
+            })
+            nextTick(() => {
+              message.info(msg)
+              jumpToLine(jumpLine)
+            })
           })
         }
       })
