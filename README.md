@@ -5,6 +5,8 @@
 
 Select the variable name to quickly provide the creation type, such as ref, computed, methods, function, watch, reactive, etc. According to whether it is currently vue2 or vue3, generate the corresponding variable and jump to the newly created variable location.
 
+![demo](/assets/demo.gif)
+
 ## keybindings
 - win: ctrl+g
 - mac: cmd+g
