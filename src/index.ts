@@ -95,6 +95,9 @@ export function activate(context: ExtensionContext) {
                   '[]',
                   '{}',
                   '\'\'',
+                  'null',
+                  'undefined',
+                  '0',
                 ], {
                   placeHolder: '选择数据类型',
                 })
@@ -204,6 +207,9 @@ export function activate(context: ExtensionContext) {
                   '[]',
                   '{}',
                   '\'\'',
+                  'null',
+                  'undefined',
+                  '0',
                 ], {
                   placeHolder: '选择数据类型',
                 })
