@@ -5,9 +5,13 @@ import { Position } from 'vscode'
 
 export function activate(context: ExtensionContext) {
   const regexData = /data\s*\(\s*\)\s*{\s*return\s*{([\s\S]*?)\s*}\s*}/
+  const dataNamesReg = /(\w+)\s*:\s*(?![^{}]*})/g
   const regexMethods = /methods\s*:\s*{([\s\S]*?)}/
+  const methodsNamesReg = /(\w+)\s*\([^)]*\)\s*\{/g
   const regexComputed = /computed\s*:\s*{([\s\S]*?)}/
   const regexWatch = /watch\s*:\s*{([\s\S]*?)}/
+  const setupVariableNameReg = /(?:const|let|var)\s+(\w+)\s*=/g
+  const setupFuncNameReg = /function\s+(\w+)/g
   context.subscriptions.push(registerCommand('fast-create-variable.select', () => {
     try {
       const { selectedTextArray, lineText, character } = getSelection()!
@@ -37,7 +41,10 @@ export function activate(context: ExtensionContext) {
       const options = scriptSetup
         ? ['ref', 'computed', 'function', 'computed', 'reactive']
         : ['data', 'methods', 'computed', 'watch']
-      createSelect(options).then((v) => {
+      createSelect(options, {
+        placeHolder: '选择快速创建的变量类型',
+        title: '快速创建变量',
+      }).then(async (v) => {
         if (v) {
           if (errors.length)
             return
@@ -57,11 +64,27 @@ export function activate(context: ExtensionContext) {
                   message.error('需要事先定义好data函数')
                   return
                 }
+                for (const matcher of match[1].matchAll(dataNamesReg)) {
+                  const name = matcher[1]
+                  if (name === title) {
+                    message.error(`data中该变量名[${title}]已存在`)
+                    return
+                  }
+                }
+                const _v = await createSelect([
+                  '[]',
+                  '{}',
+                  '\'\'',
+                ], {
+                  placeHolder: '选择数据类型',
+                })
+                if (!_v)
+                  return
                 const offset = loc.start.offset + content.indexOf(match[1])
                 const { line, column } = getPosition(offset)
                 const emptyLen = match[1].split('\n')[1].match(/^\s*/)?.[0].length || 6
                 const temp = ' '.repeat(emptyLen)
-                insertText = `\n${temp}${title}: '',`
+                insertText = `\n${temp}${title}: ${_v},`
                 insertPos = new Position(line, column)
                 jumpLine = [line + 2, emptyLen + title.length + 3]
                 msg = `已在data中添加: ${title} 属性`
@@ -73,13 +96,20 @@ export function activate(context: ExtensionContext) {
                   message.error('需要事先定义好methods对象')
                   return
                 }
+                for (const matcher of match[1].matchAll(methodsNamesReg)) {
+                  const name = matcher[1]
+                  if (name === title) {
+                    message.error(`methods中该方法名[${title}]已存在`)
+                    return
+                  }
+                }
                 const offset = loc.start.offset + content.indexOf(match[1])
                 const { line, column } = getPosition(offset)
                 const emptyLen = match[1].split('\n')[1].match(/^\s*/)?.[0].length || 6
                 const temp = ' '.repeat(emptyLen)
-                insertText = `\n${temp}${title}(){\n${temp}\n${temp}},`
+                insertText = `\n${temp}${title}(){\n  ${temp}\n${temp}},`
                 insertPos = new Position(line, column)
-                jumpLine = [line + 3, emptyLen]
+                jumpLine = [line + 3, emptyLen + 2]
                 msg = `已在methods中添加: ${title} 方法`
                 break
               }
@@ -89,13 +119,20 @@ export function activate(context: ExtensionContext) {
                   message.error('需要事先定义好computed对象')
                   return
                 }
+                for (const matcher of match[1].matchAll(methodsNamesReg)) {
+                  const name = matcher[1]
+                  if (name === title) {
+                    message.error(`computed中该方法名[${title}]已存在`)
+                    return
+                  }
+                }
                 const offset = loc.start.offset + content.indexOf(match[1])
                 const { line, column } = getPosition(offset)
                 const emptyLen = match[1].split('\n')[1].match(/^\s*/)?.[0].length || 6
                 const temp = ' '.repeat(emptyLen)
-                insertText = `\n${temp}${title}(){\n${temp}\n${temp}},`
+                insertText = `\n${temp}${title}(){\n  ${temp}\n${temp}},`
                 insertPos = new Position(line, column)
-                jumpLine = [line + 3, emptyLen]
+                jumpLine = [line + 3, emptyLen + 2]
                 msg = `已在computed中添加: ${title} 方法`
                 break
               }
@@ -105,13 +142,20 @@ export function activate(context: ExtensionContext) {
                   message.error('需要事先定义好watch对象')
                   return
                 }
+                for (const matcher of match[1].matchAll(methodsNamesReg)) {
+                  const name = matcher[1]
+                  if (name === title) {
+                    message.error(`watch中该方法名[${title}]已存在`)
+                    return
+                  }
+                }
                 const offset = loc.start.offset + content.indexOf(match[1])
                 const { line, column } = getPosition(offset)
                 const emptyLen = match[1].split('\n')[1].match(/^\s*/)?.[0].length || 6
                 const temp = ' '.repeat(emptyLen)
-                insertText = `\n${temp}${title}(newV, oldV){\n${temp}\n${temp}},`
+                insertText = `\n${temp}${title}(newV, oldV){\n  ${temp}\n${temp}},`
                 insertPos = new Position(line, column)
-                jumpLine = [line + 3, emptyLen]
+                jumpLine = [line + 3, emptyLen + 2]
                 msg = `已在watch中添加: ${title} 方法`
                 break
               }
@@ -120,23 +164,58 @@ export function activate(context: ExtensionContext) {
           else if (scriptSetup) {
             // vue3
             const endLine = scriptSetup.loc.end.line
+            for (const matcher of scriptSetup.content.matchAll(setupVariableNameReg)) {
+              const name = matcher[1]
+              if (name === title) {
+                message.error(`该变量名[${title}]已存在`)
+                return
+              }
+            }
+            for (const matcher of scriptSetup.content.matchAll(setupFuncNameReg)) {
+              const name = matcher[1]
+              if (name === title) {
+                message.error(`该变量名[${title}]已存在`)
+                return
+              }
+            }
             switch (v) {
-              case 'ref':
-                insertText = `const ${title} = ref('')\n`
+              case 'ref': {
+                const _v = await createSelect([
+                  '[]',
+                  '{}',
+                  '\'\'',
+                ], {
+                  placeHolder: '选择数据类型',
+                })
+                if (!_v)
+                  return
+                insertText = `const ${title} = ref(${_v})\n`
                 jumpLine = [endLine, insertText.length - 3]
                 break
-              case 'reactive':
-                insertText = `const ${title} = reactive()\n`
+              }
+              case 'reactive': {
+                const _v = await createSelect([
+                  '[]',
+                  '{}',
+                ], {
+                  placeHolder: '选择数据类型',
+                })
+                if (!_v)
+                  return
+                insertText = `const ${title} = reactive(${_v})\n`
                 jumpLine = [endLine, insertText.length - 2]
                 break
-              case 'function':
-                insertText = `const ${title} = () => {\n\n}\n`
+              }
+              case 'function': {
+                insertText = `const ${title} = () => {\n  \n}\n`
                 jumpLine = [endLine + 1, insertText.length - 2]
                 break
-              case 'computed':
-                insertText = `const ${title} = computed(() => {\n\n})\n`
+              }
+              case 'computed': {
+                insertText = `const ${title} = computed(() => {\n  \n})\n`
                 jumpLine = [endLine + 1, insertText.length - 2]
                 break
+              }
             }
             msg = `已添加${v}：${title} `
             insertPos = new Position(endLine - 1, 0)
