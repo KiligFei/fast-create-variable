@@ -127,9 +127,13 @@ export function activate(context: ExtensionContext) {
         return
       }
 
-      const options = scriptSetup
-        ? ['ref', 'computed', 'function', 'computed', 'reactive']
+      let options = scriptSetup
+        ? ['ref', 'computed', 'function', 'reactive']
         : ['data', 'methods', 'computed', 'watch']
+
+      if (prefixName === 'v-model')
+        options = options.filter(item => !['function', 'methods'].includes(item))
+
       createSelect(options, {
         placeHolder: '选择快速创建的变量类型',
         title: '快速创建变量',
