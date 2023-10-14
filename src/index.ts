@@ -16,6 +16,7 @@ export function activate(context: ExtensionContext) {
     try {
       const { selectedTextArray, lineText, character } = getSelection()!
       let title = selectedTextArray[0].replace(/['"\s]/g, '')
+      let prefixName = ''
       if (!title) {
         let temp = ''
         let pre = character - 1
@@ -24,16 +25,24 @@ export function activate(context: ExtensionContext) {
           pre--
         }
         let suffix = character
-        while (suffix < lineText.length && !/['"\s\n]/.test(lineText[suffix])) {
+        while (suffix < lineText.length && !/["\n]/.test(lineText[suffix])) {
           temp = `${temp}${lineText[suffix]}`
           suffix++
         }
         title = temp
+        while (pre > 0 && (lineText[pre] !== '"' || lineText[pre - 1] !== '='))
+          pre--
+
+        pre--
+        if (lineText[pre] === '=') {
+          pre--
+          while (pre > 0 && !(/[\s'"><\/]/.test(lineText[pre]))) {
+            prefixName = `${lineText[pre]}${prefixName}`
+            pre--
+          }
+        }
       }
-      if (/['"\s]/.test(title)) {
-        message.error('变量名不符合规范')
-        return
-      }
+
       let activeText = getActiveText()!
       const emptySetupMatch = activeText.match(/<script.*setup[^>]*>([\n\s]*)<\/script>/)
       let updateEmptySetup: () => void
@@ -57,6 +66,67 @@ export function activate(context: ExtensionContext) {
         errors,
       } = parse(activeText)
 
+      let insertText = ''
+      let msg = ''
+      let jumpLine: [number, number]
+      let insertPos: Position
+      let endLine = 0
+
+      const createVue2Methods = () => {
+        const { content, loc } = script!
+
+        const match = content.match(regexMethods)
+        if (!match) {
+          message.error('需要事先定义好methods对象')
+          return
+        }
+        for (const matcher of match[1].matchAll(methodsNamesReg)) {
+          const name = matcher[1]
+          if (name === title) {
+            message.error(`methods中该方法名[${title}]已存在`)
+            return
+          }
+        }
+        const offset = loc.start.offset + content.indexOf(match[1])
+        const { line, column } = getPosition(offset)
+        const emptyLen = match[1].split('\n')[1].match(/^\s*/)?.[0].length || 6
+        const temp = ' '.repeat(emptyLen)
+        insertText = `\n${temp}${title}(){\n  ${temp}\n${temp}},`
+        insertPos = new Position(line, column)
+        jumpLine = [line + 3, emptyLen + 2]
+        msg = `已在methods中添加: ${title} 方法`
+        return true
+      }
+
+      const createVue3Methods = () => {
+        const fnMatch = title.match(/\(([^\)]*)\)/)
+        if (fnMatch) {
+          let i = 0
+          insertText = `const ${title.replace(fnMatch[0], '')} = (${fnMatch[1].replace(/'[^']*'/g, () => {
+            return `p${i++}`
+          })}) => {\n  \n}`
+        }
+        else {
+          insertText = `const ${title} = () => {\n  \n}`
+        }
+        jumpLine = [endLine + 1, insertText.length - 2]
+      }
+
+      if (prefixName[0] === '@') {
+        // 直接创建methods
+        if (script) {
+          createVue2Methods()
+        }
+        else if (scriptSetup) {
+          endLine = scriptSetup.loc.end.line
+          createVue3Methods()
+          msg = `已添加function：${title} `
+          insertPos = new Position(endLine - 1, 0)
+        }
+        mount()
+        return
+      }
+
       const options = scriptSetup
         ? ['ref', 'computed', 'function', 'computed', 'reactive']
         : ['data', 'methods', 'computed', 'watch']
@@ -67,11 +137,22 @@ export function activate(context: ExtensionContext) {
         if (v) {
           if (errors.length)
             return
-          let insertText = ''
-          let msg = ''
-          let jumpLine: [number, number]
-          let insertPos: Position
-
+          title = title.replace(/=/, '')
+          if (v !== 'function' && v !== 'methods') {
+            title = title.replace(/\([^\)]*\)/, '')
+            title = title.split(' ')[0]
+            if (/['"\s\-\[\]]/.test(title)) {
+              message.error('变量名不符合规范')
+              return
+            }
+          }
+          else {
+            const _title = title.replace(/\([^\)]*\)/, '')
+            if (/['"\s\-\[\]]/.test(_title)) {
+              message.error('变量名不符合规范')
+              return
+            }
+          }
           if (script) {
             // vue2
             // todos: 若未能匹配到，创建methods、data、watch、computed
@@ -115,26 +196,8 @@ export function activate(context: ExtensionContext) {
                 break
               }
               case 'methods': {
-                const match = content.match(regexMethods)
-                if (!match) {
-                  message.error('需要事先定义好methods对象')
+                if (!createVue2Methods())
                   return
-                }
-                for (const matcher of match[1].matchAll(methodsNamesReg)) {
-                  const name = matcher[1]
-                  if (name === title) {
-                    message.error(`methods中该方法名[${title}]已存在`)
-                    return
-                  }
-                }
-                const offset = loc.start.offset + content.indexOf(match[1])
-                const { line, column } = getPosition(offset)
-                const emptyLen = match[1].split('\n')[1].match(/^\s*/)?.[0].length || 6
-                const temp = ' '.repeat(emptyLen)
-                insertText = `\n${temp}${title}(){\n  ${temp}\n${temp}},`
-                insertPos = new Position(line, column)
-                jumpLine = [line + 3, emptyLen + 2]
-                msg = `已在methods中添加: ${title} 方法`
                 break
               }
               case 'computed': {
@@ -187,7 +250,8 @@ export function activate(context: ExtensionContext) {
           }
           else if (scriptSetup) {
             // vue3
-            const endLine = scriptSetup.loc.end.line
+            endLine = scriptSetup.loc.end.line
+
             for (const matcher of scriptSetup.content.matchAll(setupVariableNameReg)) {
               const name = matcher[1]
               if (name === title) {
@@ -202,6 +266,7 @@ export function activate(context: ExtensionContext) {
                 return
               }
             }
+
             switch (v) {
               case 'ref': {
                 const _v = await createSelect([
@@ -236,8 +301,7 @@ export function activate(context: ExtensionContext) {
                 break
               }
               case 'function': {
-                insertText = `const ${title} = () => {\n  \n}`
-                jumpLine = [endLine + 1, insertText.length - 2]
+                createVue3Methods()
                 break
               }
               case 'computed': {
@@ -252,18 +316,22 @@ export function activate(context: ExtensionContext) {
           else {
             return
           }
-          updateEmptySetup && updateEmptySetup()
-          nextTick(() => {
-            updateText((edit) => {
-              edit.insert(insertPos, insertText + (scriptSetup ? (getLineText(insertPos.line) ? '\n' : '') : ''))
-            })
-            nextTick(() => {
-              message.info(msg)
-              jumpToLine(jumpLine)
-            })
-          })
+          mount()
         }
       })
+
+      function mount() {
+        updateEmptySetup && updateEmptySetup()
+        nextTick(() => {
+          updateText((edit) => {
+            edit.insert(insertPos, insertText + (scriptSetup ? (getLineText(insertPos.line) ? '\n' : '') : ''))
+          })
+          nextTick(() => {
+            message.info(msg)
+            jumpToLine(jumpLine)
+          })
+        })
+      }
     }
     catch (error) {
       console.error(error)
