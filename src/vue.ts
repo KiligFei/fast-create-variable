@@ -72,7 +72,13 @@ export async function createInVue(activeText: string, title: string, prefixName:
   }
 
   const createVue3Methods = () => {
+    const match = scriptSetup!.content.match(`const\\s+${title}\\s*=`) || scriptSetup!.content.match(`function\\s+${title}`)
+    if (match) {
+      message.error(`function: ${title} 已存在`)
+      return
+    }
     const fnMatch = title.match(/\(([^\)]*)\)/)
+
     if (fnMatch) {
       let i = 0
       insertText = `const ${title.replace(fnMatch[0], '')} = (${fnMatch[1].replace(/'[^']*'/g, () => {
@@ -83,16 +89,19 @@ export async function createInVue(activeText: string, title: string, prefixName:
       insertText = `const ${title} = () => {\n  \n}`
     }
     jumpLine = [endLine + 1, insertText.length - 2]
+    return true
   }
 
   if (prefixName[0] === '@') {
     // 直接创建methods
     if (script) {
-      createVue2Methods()
+      if (!createVue2Methods())
+        return
     }
     else if (scriptSetup) {
       endLine = scriptSetup.loc.end.line
-      createVue3Methods()
+      if (!createVue3Methods())
+        return
       msg = `已添加function：${title} `
       insertPos = new Position(endLine - 1, 0)
     }
@@ -184,6 +193,22 @@ export async function createInVue(activeText: string, title: string, prefixName:
       mount()
     }
     return
+  }
+  if (scriptSetup) {
+    for (const matcher of scriptSetup.content.matchAll(setupVariableNameReg)) {
+      const name = matcher[1]
+      if (name === title) {
+        message.error(`该变量名[${title}]已存在`)
+        return
+      }
+    }
+    for (const matcher of scriptSetup.content.matchAll(setupFuncNameReg)) {
+      const name = matcher[1]
+      if (name === title) {
+        message.error(`该变量名[${title}]已存在`)
+        return
+      }
+    }
   }
 
   if (prefixName.startsWith('v-model') || notFunctionPrefix.some(n => prefixName.includes(n)))
@@ -356,21 +381,6 @@ export async function createInVue(activeText: string, title: string, prefixName:
     // vue3
     endLine = scriptSetup.loc.end.line
 
-    for (const matcher of scriptSetup.content.matchAll(setupVariableNameReg)) {
-      const name = matcher[1]
-      if (name === title) {
-        message.error(`该变量名[${title}]已存在`)
-        return
-      }
-    }
-    for (const matcher of scriptSetup.content.matchAll(setupFuncNameReg)) {
-      const name = matcher[1]
-      if (name === title) {
-        message.error(`该变量名[${title}]已存在`)
-        return
-      }
-    }
-
     switch (v) {
       case 'ref': {
         const _v = await createSelect([
@@ -405,7 +415,8 @@ export async function createInVue(activeText: string, title: string, prefixName:
         break
       }
       case 'function': {
-        createVue3Methods()
+        if (!createVue3Methods())
+          return
         break
       }
       case 'computed': {
