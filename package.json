@@ -37,7 +37,7 @@
     "menus": {
       "editor/context": [
         {
-          "when": "editorFocus && editorLangId == 'vue'",
+          "when": "editorFocus",
           "command": "fast-create-variable.select",
           "group": "6_px"
         }
@@ -53,12 +53,12 @@
       {
         "command": "fast-create-variable.select",
         "key": "cmd+g",
-        "when": "isMac && editorLangId == 'vue'"
+        "when": "isMac"
       },
       {
         "command": "fast-create-variable.select",
         "key": "ctrl+g",
-        "when": "!isMac && editorLangId == 'vue'"
+        "when": "!isMac"
       }
     ]
   },
