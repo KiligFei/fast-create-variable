@@ -43,6 +43,7 @@ export async function createInVue(activeText: string, title: string, prefixName:
   let jumpLine: [number, number]
   let insertPos: Position
   let endLine = 0
+  let isExistTitle = false
 
   const createVue2Methods = () => {
     const { content, loc } = script!
@@ -103,7 +104,6 @@ export async function createInVue(activeText: string, title: string, prefixName:
     ? ['ref', 'computed', 'function', 'reactive']
     : ['data', 'methods', 'computed', 'watch']
 
-  let isExistTitle = false
   let propInObj = ''
   if (scriptSetup && title.includes('.')) {
     endLine = scriptSetup.loc.end.line
