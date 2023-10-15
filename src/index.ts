@@ -1,5 +1,6 @@
 import { createRange, createSelect, getActiveText, getLineText, getPosition, getSelection, jumpToLine, message, nextTick, registerCommand, updateText } from '@vscode-use/utils'
 import { parse } from '@vue/compiler-sfc'
+import { useJSONParse } from 'lazy-js-utils'
 import type { ExtensionContext } from 'vscode'
 import { Position } from 'vscode'
 
@@ -12,7 +13,10 @@ export function activate(context: ExtensionContext) {
   const regexWatch = /watch\s*:\s*{([\s\S]*?)}/
   const setupVariableNameReg = /(?:const|let|var)\s+(\w+)\s*=/g
   const setupFuncNameReg = /function\s+(\w+)/g
-  context.subscriptions.push(registerCommand('fast-create-variable.select', () => {
+  const notFunctionPrefix = ['.trim', '.number', '.sync']
+
+  // todos: 重构提取公共逻辑
+  context.subscriptions.push(registerCommand('fast-create-variable.select', async () => {
     try {
       const { selectedTextArray, lineText, character } = getSelection()!
       let title = selectedTextArray[0].replace(/['"\s]/g, '')
@@ -89,7 +93,7 @@ export function activate(context: ExtensionContext) {
         }
         const offset = loc.start.offset + content.indexOf(match[1])
         const { line, column } = getPosition(offset)
-        const emptyLen = match[1].split('\n')[1].match(/^\s*/)?.[0].length || 6
+        const emptyLen = match[1].split('\n')[1]?.match(/^\s*/)?.[0].length || 6
         const temp = ' '.repeat(emptyLen)
         insertText = `\n${temp}${title}(){\n  ${temp}\n${temp}},`
         insertPos = new Position(line, column)
@@ -131,7 +135,90 @@ export function activate(context: ExtensionContext) {
         ? ['ref', 'computed', 'function', 'reactive']
         : ['data', 'methods', 'computed', 'watch']
 
-      if (prefixName === 'v-model')
+      let isExistTitle = false
+      let propInObj: string
+      if (scriptSetup && title.includes('.')) {
+        endLine = scriptSetup.loc.end.line
+        const _title = title.split('.')
+        title = _title[0]
+        propInObj = _title.slice(1)[0]
+        for (const matcher of scriptSetup.content.matchAll(setupVariableNameReg)) {
+          const name = matcher[1]
+          if (name === title) {
+            isExistTitle = true
+            break
+          }
+        }
+        if (isExistTitle) {
+          const match = scriptSetup.content.match(`(?:const|let|var)\\s+${title}\\s*=\\s*(?:ref|reactive)\\([\\s\\n]*{([\\s\\S]*?)}[\\s\\n]*\\)`)
+          if (match) {
+            const obj = useJSONParse(`{${match[1]}}`)
+            if (obj[propInObj] !== undefined) {
+              message.error(`该变量名[${title}.${propInObj}]已存在`)
+              return
+            }
+            else {
+              // 补充属性
+              const _v = await createSelect([
+                '[]',
+                '{}',
+                '\'\'',
+                'null',
+                'undefined',
+                '0',
+                'true',
+                'false',
+              ], {
+                placeHolder: '选择数据类型',
+              })
+              if (!_v)
+                return
+
+              const emptyLen = match[1].split('\n')[1]?.match(/^\s*/)?.[0].length || 2
+              const index = match.index! + match[0].indexOf(match[1] || '{}')
+              const offset = scriptSetup.loc.start.offset + index
+              const { line, column } = getPosition(offset)
+              const temp = ' '.repeat(emptyLen)
+              insertText = `\n${temp}${propInObj}: ${_v},${match[1] ? '' : '\n'}`
+              insertPos = new Position(line, column)
+              jumpLine = [line + 2, emptyLen + `${propInObj}: ${_v}`.length - 1]
+              msg = `已添加ref：${title}.${propInObj}`
+              mount()
+            }
+          }
+          else {
+            message.error(`${title} 在data中定义的数据类型有误`)
+            return
+          }
+        }
+        else {
+          const _v = await createSelect([
+            '[]',
+            '{}',
+            '\'\'',
+            'null',
+            'undefined',
+            '0',
+            'true',
+            'false',
+          ], {
+            placeHolder: '选择数据类型',
+          })
+          if (!_v)
+            return
+
+          insertText = `const ${title} = ref({\n  ${_title.slice(1)[0]}: ${_v}\n})`
+          jumpLine = [endLine + 1, `  ${_title.slice(1)[0]}: ${_v}`.length - 1]
+          msg = propInObj
+            ? `已添加ref：${title}.${propInObj}`
+            : `已添加ref：${title}`
+          insertPos = new Position(endLine - 1, 0)
+          mount()
+        }
+        return
+      }
+
+      if (prefixName.startsWith('v-model') || notFunctionPrefix.some(n => prefixName.includes(n)))
         options = options.filter(item => !['function', 'methods'].includes(item))
 
       createSelect(options, {
@@ -146,14 +233,14 @@ export function activate(context: ExtensionContext) {
             title = title.replace(/\([^\)]*\)/, '')
             title = title.split(' ')[0]
             if (/['"\s\-\[\]]/.test(title)) {
-              message.error('变量名不符合规范')
+              message.error('变量名不符合规范：不能包含空格、中括号、引号等特殊字符')
               return
             }
           }
           else {
             const _title = title.replace(/\([^\)]*\)/, '')
             if (/['"\s\-\[\]]/.test(_title)) {
-              message.error('变量名不符合规范')
+              message.error('变量名不符合规范：不能包含空格、中括号、引号等特殊字符')
               return
             }
           }
@@ -168,11 +255,19 @@ export function activate(context: ExtensionContext) {
                   message.error('需要事先定义好data函数')
                   return
                 }
-                for (const matcher of match[1].matchAll(dataNamesReg)) {
-                  const name = matcher[1]
-                  if (name === title) {
-                    message.error(`data中该变量名[${title}]已存在`)
-                    return
+
+                if (title.includes('.')) {
+                  const _title = title.split('.')
+                  title = _title[0]
+                  propInObj = _title.slice(1)[0]
+                }
+                else {
+                  for (const matcher of match[1].matchAll(dataNamesReg)) {
+                    const name = matcher[1]
+                    if (name === title) {
+                      message.error(`data中该变量名[${title}]已存在`)
+                      return
+                    }
                   }
                 }
                 const _v = await createSelect([
@@ -189,14 +284,51 @@ export function activate(context: ExtensionContext) {
                 })
                 if (!_v)
                   return
-                const offset = loc.start.offset + content.indexOf(match[1])
-                const { line, column } = getPosition(offset)
-                const emptyLen = match[1].split('\n')[1].match(/^\s*/)?.[0].length || 6
-                const temp = ' '.repeat(emptyLen)
-                insertText = `\n${temp}${title}: ${_v},`
-                insertPos = new Position(line, column)
-                jumpLine = [line + 2, emptyLen + title.length + 3]
-                msg = `已在data中添加: ${title} 属性`
+                let hasObj = false
+                if (propInObj) {
+                  for (const matcher of match[1].matchAll(dataNamesReg)) {
+                    const name = matcher[1]
+                    if (name === title) {
+                      hasObj = true
+                      break
+                    }
+                  }
+                }
+                if (hasObj) {
+                  const objMatch = match[1].match(`${title}:\\s*{([^}]*)}`)
+                  if (objMatch) {
+                    // 目前只考虑了一层obj.xx，todos: obj.x1.x2.x3....
+                    const obj = useJSONParse(`{${objMatch[1]}}`)
+                    if (obj[propInObj] !== undefined) {
+                      message.error(`data中该变量名[${title}.${propInObj}]已存在`)
+                      return
+                    }
+                    const emptyLen = objMatch[1].split('\n')[1]?.match(/^\s*/)?.[0].length || 6
+                    const index = objMatch.index! + objMatch[0].indexOf(objMatch[1])
+                    const offset = loc.start.offset + content.indexOf(match[1]) + index
+                    const { line, column } = getPosition(offset)
+                    const temp = ' '.repeat(emptyLen)
+                    insertText = `\n${temp}${propInObj}: ${_v},`
+                    insertPos = new Position(line, column)
+                    jumpLine = [line + 2, emptyLen + title.length + 3]
+                    msg = `已在data中添加: ${title} 属性`
+                  }
+                  else {
+                    message.error(`${title} 在data中定义的数据类型有误`)
+                    return
+                  }
+                }
+                else {
+                  const offset = loc.start.offset + content.indexOf(match[1])
+                  const { line, column } = getPosition(offset)
+                  const emptyLen = match[1].split('\n')[1]?.match(/^\s*/)?.[0].length || 6
+                  const temp = ' '.repeat(emptyLen)
+                  insertText = `\n${temp}${title}: ${_v},`
+                  insertPos = new Position(line, column)
+                  jumpLine = [line + 2, emptyLen + title.length + 3]
+                  msg = `已在data中添加: ${title} 属性`
+                }
+
                 break
               }
               case 'methods': {
@@ -219,7 +351,7 @@ export function activate(context: ExtensionContext) {
                 }
                 const offset = loc.start.offset + content.indexOf(match[1])
                 const { line, column } = getPosition(offset)
-                const emptyLen = match[1].split('\n')[1].match(/^\s*/)?.[0].length || 6
+                const emptyLen = match[1].split('\n')[1]?.match(/^\s*/)?.[0].length || 6
                 const temp = ' '.repeat(emptyLen)
                 insertText = `\n${temp}${title}(){\n  ${temp}\n${temp}},`
                 insertPos = new Position(line, column)
@@ -242,7 +374,7 @@ export function activate(context: ExtensionContext) {
                 }
                 const offset = loc.start.offset + content.indexOf(match[1])
                 const { line, column } = getPosition(offset)
-                const emptyLen = match[1].split('\n')[1].match(/^\s*/)?.[0].length || 6
+                const emptyLen = match[1].split('\n')[1]?.match(/^\s*/)?.[0].length || 6
                 const temp = ' '.repeat(emptyLen)
                 insertText = `\n${temp}${title}(newV, oldV){\n  ${temp}\n${temp}},`
                 insertPos = new Position(line, column)
@@ -314,7 +446,9 @@ export function activate(context: ExtensionContext) {
                 break
               }
             }
-            msg = `已添加${v}：${title} `
+            msg = propInObj
+              ? `已添加${v}：${title}.${propInObj}`
+              : `已添加${v}：${title}`
             insertPos = new Position(endLine - 1, 0)
           }
           else {
@@ -328,7 +462,7 @@ export function activate(context: ExtensionContext) {
         updateEmptySetup && updateEmptySetup()
         nextTick(() => {
           updateText((edit) => {
-            edit.insert(insertPos, insertText + (scriptSetup ? (getLineText(insertPos.line) ? '\n' : '') : ''))
+            edit.insert(insertPos, insertText + ((!isExistTitle && scriptSetup) ? (getLineText(insertPos.line) ? '\n' : '') : ''))
           })
           nextTick(() => {
             message.info(msg)
