@@ -60,11 +60,11 @@ export async function createInVue(activeText: string, title: string, prefixName:
         return
       }
     }
-    const offset = loc.start.offset + content.indexOf(match[1])
+    const offset = loc.start.offset + content.indexOf(match[0]) + match[0].indexOf(match[1] || '{}')
     const { line, column } = getPosition(offset)
     const emptyLen = match[1].split('\n')[1]?.match(/^\s*/)?.[0].length || 6
     const temp = ' '.repeat(emptyLen)
-    insertText = `\n${temp}${title}(){\n  ${temp}\n${temp}},`
+    insertText = `\n${temp}${title}(){\n  ${temp}\n${temp}},${match[1] ? '' : `\n${temp.slice(2)}`}`
     insertPos = new Position(line, column)
     jumpLine = [line + 3, emptyLen + 2]
     msg = `已在methods中添加: ${title} 方法`
@@ -248,7 +248,6 @@ export async function createInVue(activeText: string, title: string, prefixName:
           message.error('需要事先定义好data函数')
           return
         }
-
         if (title.includes('.')) {
           const _title = title.split('.')
           title = _title[0]
@@ -297,11 +296,11 @@ export async function createInVue(activeText: string, title: string, prefixName:
               return
             }
             const emptyLen = objMatch[1].split('\n')[1]?.match(/^\s*/)?.[0].length || 6
-            const index = objMatch.index! + objMatch[0].indexOf(objMatch[1])
+            const index = objMatch.index! + objMatch[0].indexOf(objMatch[1] || '{}')
             const offset = loc.start.offset + content.indexOf(match[1]) + index
             const { line, column } = getPosition(offset)
             const temp = ' '.repeat(emptyLen)
-            insertText = `\n${temp}${propInObj}: ${_v},`
+            insertText = `\n${temp}${propInObj}: ${_v},${objMatch[1] ? '' : `\n${temp.slice(2)}`}`
             insertPos = new Position(line, column)
             jumpLine = [line + 2, emptyLen + title.length + 3]
             msg = `已在data中添加: ${title} 属性`
@@ -312,11 +311,11 @@ export async function createInVue(activeText: string, title: string, prefixName:
           }
         }
         else {
-          const offset = loc.start.offset + content.indexOf(match[1])
+          const offset = loc.start.offset + content.indexOf(match[1] || '{}')
           const { line, column } = getPosition(offset)
           const emptyLen = match[1].split('\n')[1]?.match(/^\s*/)?.[0].length || 6
           const temp = ' '.repeat(emptyLen)
-          insertText = `\n${temp}${title}: ${_v},`
+          insertText = `\n${temp}${title}: ${_v},${match[1] ? '' : `\n${temp.slice(2)}`}`
           insertPos = new Position(line, column)
           jumpLine = [line + 2, emptyLen + title.length + 3]
           msg = `已在data中添加: ${title} 属性`
@@ -342,11 +341,11 @@ export async function createInVue(activeText: string, title: string, prefixName:
             return
           }
         }
-        const offset = loc.start.offset + content.indexOf(match[1])
+        const offset = loc.start.offset + content.indexOf(match[0]) + match[0].indexOf(match[1] || '{}')
         const { line, column } = getPosition(offset)
         const emptyLen = match[1].split('\n')[1]?.match(/^\s*/)?.[0].length || 6
         const temp = ' '.repeat(emptyLen)
-        insertText = `\n${temp}${title}(){\n  ${temp}\n${temp}},`
+        insertText = `\n${temp}${title}(){\n  ${temp}\n${temp}},${match[1] ? '' : `\n${temp.slice(2)}`}`
         insertPos = new Position(line, column)
         jumpLine = [line + 3, emptyLen + 2]
         msg = `已在computed中添加: ${title} 方法`
@@ -365,11 +364,11 @@ export async function createInVue(activeText: string, title: string, prefixName:
             return
           }
         }
-        const offset = loc.start.offset + content.indexOf(match[1])
+        const offset = loc.start.offset + content.indexOf(match[1] || '{}')
         const { line, column } = getPosition(offset)
         const emptyLen = match[1].split('\n')[1]?.match(/^\s*/)?.[0].length || 6
         const temp = ' '.repeat(emptyLen)
-        insertText = `\n${temp}${title}(newV, oldV){\n  ${temp}\n${temp}},`
+        insertText = `\n${temp}${title}(newV, oldV){\n  ${temp}\n${temp}},${match[1] ? '' : `\n${temp.slice(2)}`}`
         insertPos = new Position(line, column)
         jumpLine = [line + 3, emptyLen + 2]
         msg = `已在watch中添加: ${title} 方法`
