@@ -99,6 +99,11 @@ export async function createInVue(activeText: string, title: string, prefixName:
         return
     }
     else if (scriptSetup) {
+      const _title = title.replace(/\([^\)]*\)/, '')
+      if (/['"\s\-\+\[\]]/.test(_title)) {
+        message.error('变量名不符合规范：不能包含空格、中括号、引号等特殊字符')
+        return
+      }
       endLine = scriptSetup.loc.end.line
       if (!createVue3Methods())
         return
@@ -232,7 +237,7 @@ export async function createInVue(activeText: string, title: string, prefixName:
   }
   else {
     const _title = title.replace(/\([^\)]*\)/, '')
-    if (/['"\s\-\[\]]/.test(_title)) {
+    if (/['"\s\-\+\[\]]/.test(_title)) {
       message.error('变量名不符合规范：不能包含空格、中括号、引号等特殊字符')
       return
     }
