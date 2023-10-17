@@ -71,22 +71,28 @@ export async function createInVue(activeText: string, title: string, prefixName:
     return true
   }
 
-  const createVue3Methods = () => {
+  const createVue3Methods = async (type?: 'function' | 'arrowFunction') => {
     const match = scriptSetup!.content.match(`const\\s+${title}\\s*=`) || scriptSetup!.content.match(`function\\s+${title}`)
     if (match) {
       message.error(`function: ${title} 已存在`)
       return
     }
+    if (!type)
+      type = (await createSelect(['function', 'arrowFunction'])) as 'function' | 'arrowFunction'
+    if (!type)
+      return
     const fnMatch = title.match(/\(([^\)]*)\)/)
 
     if (fnMatch) {
       let i = 0
-      insertText = `const ${title.replace(fnMatch[0], '')} = (${fnMatch[1].replace(/'[^']*'/g, () => {
-        return `p${i++}`
-      })}) => {\n  \n}`
+      insertText = type === 'arrowFunction'
+        ? `const ${title.replace(fnMatch[0], '')} = (${fnMatch[1].replace(/'[^']*'/g, () => `p${i++}`)}) => {\n  \n}`
+        : `function ${title.replace(fnMatch[0], '')}(${fnMatch[1].replace(/'[^']*'/g, () => `p${i++}`)}) {\n  \n}`
     }
     else {
-      insertText = `const ${title} = () => {\n  \n}`
+      insertText = type === 'arrowFunction'
+        ? `const ${title} = () => {\n  \n}`
+        : `function ${title}() {\n  \n}`
     }
     jumpLine = [endLine + 1, insertText.length - 2]
     return true
@@ -105,7 +111,7 @@ export async function createInVue(activeText: string, title: string, prefixName:
         return
       }
       endLine = scriptSetup.loc.end.line
-      if (!createVue3Methods())
+      if (!await createVue3Methods())
         return
       msg = `已添加function：${title} `
       insertPos = new Position(endLine - 1, 0)
@@ -115,7 +121,7 @@ export async function createInVue(activeText: string, title: string, prefixName:
   }
 
   let options = scriptSetup
-    ? ['ref', 'computed', 'function', 'reactive']
+    ? ['ref', 'computed', 'function', 'arrowFunction', 'reactive']
     : ['data', 'methods', 'computed', 'watch']
 
   let propInObj = ''
@@ -419,7 +425,12 @@ export async function createInVue(activeText: string, title: string, prefixName:
         break
       }
       case 'function': {
-        if (!createVue3Methods())
+        if (!await createVue3Methods('function'))
+          return
+        break
+      }
+      case 'arrowFunction': {
+        if (!await createVue3Methods('arrowFunction'))
           return
         break
       }
