@@ -1,6 +1,6 @@
 import { nextTick } from 'node:process'
-import type { FunctionDeclaration } from '@babel/types'
-import { isArrayPattern, isFunctionDeclaration, isJSXElement, isJSXFragment, isVariableDeclaration, traverse } from '@babel/types'
+import type { ArrowFunctionExpression, ClassMethod, FunctionDeclaration, VariableDeclaration } from '@babel/types'
+import { isArrayPattern, isArrowFunctionExpression, isClassMethod, isFunctionDeclaration, isJSXElement, isJSXFragment, isVariableDeclaration, traverse } from '@babel/types'
 import { createSelect, getLineText, getSelection, isInPosition, jumpToLine, message, updateText } from '@vscode-use/utils'
 import { Position } from 'vscode'
 import { EXPECTED_ERROR } from './constants'
@@ -10,11 +10,24 @@ export async function createInJsx(activeText: string, title: string, prefixName:
   const ast = babelParse(activeText)
   const { line, character } = getSelection()!
   const pos = new Position(line, character)
-  let targetFunction!: FunctionDeclaration
+  let targetFunction!: FunctionDeclaration | ArrowFunctionExpression | ClassMethod
+  let targetElement: VariableDeclaration
   try {
     traverse(ast, (node) => {
-      if (isFunctionDeclaration(node)) {
+      if (isFunctionDeclaration(node) || isArrowFunctionExpression(node) || isClassMethod(node)) {
         traverse(node, (childNode) => {
+          if (isVariableDeclaration(childNode)) {
+            const variableNode = childNode
+            traverse(childNode, (jsxNode) => {
+              if (isJSXElement(jsxNode) || isJSXFragment(jsxNode)) {
+                if (isInPosition(jsxNode.loc!, pos)) {
+                  targetFunction = node
+                  targetElement = variableNode
+                  throw new Error(EXPECTED_ERROR)
+                }
+              }
+            })
+          }
           if (isJSXElement(childNode) || isJSXFragment(childNode)) {
             if (isInPosition(childNode.loc!, pos)) {
               targetFunction = node
@@ -31,9 +44,9 @@ export async function createInJsx(activeText: string, title: string, prefixName:
   }
   if (!targetFunction)
     return
-  const body = targetFunction.body.body.findLast(item => isVariableDeclaration(item)) || targetFunction
+  const body = (targetFunction.body as any)?.body?.findLast((item: any) => isVariableDeclaration(item) && item !== targetElement) || targetFunction
   const emptyLen = body === targetFunction
-    ? 2
+    ? (getLineText(targetFunction.loc!.start.line - 1).match(/^\s*/)?.[0].length! + 2)
     : (getLineText(body.loc!.start.line - 1).match(/^\s*/)?.[0].length || 2)
   const emptyStr = ' '.repeat(emptyLen)
   const loc = new Position(body === targetFunction
@@ -47,7 +60,7 @@ export async function createInJsx(activeText: string, title: string, prefixName:
         'function',
         'arrowFunction',
       ]
-  const isDuplicate = Array.from(targetFunction.body.body).some((item) => {
+  const isDuplicate = Array.from((targetFunction.body as any).body).some((item: any) => {
     if (isVariableDeclaration(item)) {
       const variable = (item as any).declarations[0].id
       return isArrayPattern(variable)
@@ -86,23 +99,51 @@ export async function createInJsx(activeText: string, title: string, prefixName:
   }
   switch (v) {
     case 'useState': {
-      insertText = `const [${title}, set${title[0].toUpperCase() + title.slice(1)}] = useState('');`
-      jumpLine = [loc.line + 1, insertText.length - 1]
+      const v = await createSelect([
+        '[]',
+        '{}',
+        '\'\'',
+        'null',
+        'undefined',
+        '0',
+        'true',
+        'false',
+      ], {
+        placeHolder: '选择数据类型',
+      })
+      if (!v)
+        return
+      insertText = `const [${title}, set${title[0].toUpperCase() + title.slice(1)}] = useState(${v});`
+      jumpLine = [loc.line + 1, insertText.length + 1]
       break
     }
     case 'useRef': {
-      insertText = `const ${title} = useRef('');`
-      jumpLine = [loc.line + 1, insertText.length - 1]
+      const v = await createSelect([
+        '[]',
+        '{}',
+        '\'\'',
+        'null',
+        'undefined',
+        '0',
+        'true',
+        'false',
+      ], {
+        placeHolder: '选择数据类型',
+      })
+      if (!v)
+        return
+      insertText = `const ${title} = useRef(${v});`
+      jumpLine = [loc.line + 1, insertText.length + 1]
       break
     }
     case 'function': {
       const fnMatch = title.match(/\(([^\)]*)\)/)
       if (fnMatch) {
         let i = 0
-        insertText = `function ${title.replace(fnMatch[0], '')}(${fnMatch[1].replace(/'[^']*'/g, () => `p${i++}`)}) {\n${emptyStr}${emptyStr}\n${emptyStr}}`
+        insertText = `function ${title.replace(fnMatch[0], '')}(${fnMatch[1].replace(/'[^']*'/g, () => `p${i++}`)}) {\n${emptyStr}  \n${emptyStr}}`
       }
       else {
-        insertText = `function ${title}() {\n${emptyStr}${emptyStr}\n${emptyStr}}`
+        insertText = `function ${title}() {\n${emptyStr}  \n${emptyStr}}`
       }
       jumpLine = [loc.line + 2, insertText.length - 2]
       break
@@ -112,10 +153,10 @@ export async function createInJsx(activeText: string, title: string, prefixName:
 
       if (fnMatch) {
         let i = 0
-        insertText = `const ${title.replace(fnMatch[0], '')} = (${fnMatch[1].replace(/'[^']*'/g, () => `p${i++}`)}) => {\n${emptyStr}${emptyStr}\n${emptyStr}}`
+        insertText = `const ${title.replace(fnMatch[0], '')} = (${fnMatch[1].replace(/'[^']*'/g, () => `p${i++}`)}) => {\n${emptyStr}  \n${emptyStr}}`
       }
       else {
-        insertText = `const ${title} = () => {\n${emptyStr}${emptyStr}\n${emptyStr}}`
+        insertText = `const ${title} = () => {\n${emptyStr}  \n${emptyStr}}`
       }
       jumpLine = [loc.line + 2, insertText.length - 2]
       break
