@@ -121,7 +121,7 @@ export async function createInVue(activeText: string, title: string, prefixName:
   }
 
   let options = scriptSetup
-    ? ['ref', 'computed', 'function', 'arrowFunction', 'reactive']
+    ? ['ref', 'computed', 'reactive', 'function', 'arrowFunction', 'shallowRef', 'shallowReactive']
     : ['data', 'methods', 'computed', 'watch']
 
   let propInObj = ''
@@ -411,6 +411,25 @@ export async function createInVue(activeText: string, title: string, prefixName:
         jumpLine = [endLine, insertText.length - 2]
         break
       }
+      case 'shallowRef': {
+        const _v = await createSelect([
+          '[]',
+          '{}',
+          '\'\'',
+          'null',
+          'undefined',
+          '0',
+          'true',
+          'false',
+        ], {
+          placeHolder: '选择数据类型',
+        })
+        if (!_v)
+          return
+        insertText = `const ${title} = shallowRef(${_v})`
+        jumpLine = [endLine, insertText.length - 2]
+        break
+      }
       case 'reactive': {
         const _v = await createSelect([
           '[]',
@@ -421,6 +440,19 @@ export async function createInVue(activeText: string, title: string, prefixName:
         if (!_v)
           return
         insertText = `const ${title} = reactive(${_v})`
+        jumpLine = [endLine, insertText.length - 2]
+        break
+      }
+      case 'shallowReactive': {
+        const _v = await createSelect([
+          '[]',
+          '{}',
+        ], {
+          placeHolder: '选择数据类型',
+        })
+        if (!_v)
+          return
+        insertText = `const ${title} = shallowReactive(${_v})`
         jumpLine = [endLine, insertText.length - 2]
         break
       }

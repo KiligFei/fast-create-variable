@@ -59,6 +59,8 @@ export async function createInJsx(activeText: string, title: string, prefixName:
         'useRef',
         'function',
         'arrowFunction',
+        'useCallback',
+        'useMemo',
       ]
   const isDuplicate = Array.from((targetFunction.body as any).body).some((item: any) => {
     if (isVariableDeclaration(item)) {
@@ -119,10 +121,10 @@ export async function createInJsx(activeText: string, title: string, prefixName:
     }
     case 'useRef': {
       const v = await createSelect([
+        'null',
         '[]',
         '{}',
         '\'\'',
-        'null',
         'undefined',
         '0',
         'true',
@@ -158,6 +160,16 @@ export async function createInJsx(activeText: string, title: string, prefixName:
       else {
         insertText = `const ${title} = () => {\n${emptyStr}  \n${emptyStr}}`
       }
+      jumpLine = [loc.line + 2, insertText.length - 2]
+      break
+    }
+    case 'useCallback':{
+      insertText = `const ${title} = useCallback(() => {\n${emptyStr}  \n${emptyStr}}, []);`
+      jumpLine = [loc.line + 2, insertText.length - 2]
+      break
+    }
+    case 'useMemo':{
+      insertText = `const ${title} = useMemo(() => {\n${emptyStr}  \n${emptyStr}}, []);`
       jumpLine = [loc.line + 2, insertText.length - 2]
       break
     }
