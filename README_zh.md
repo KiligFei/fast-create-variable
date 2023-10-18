@@ -7,7 +7,11 @@
 
 解释一下这个插件的作用，正常我们写代码，是先去写template，比如el-input然后写v-model 或者 @click等事件，然后再去顶部去定义ref，或者 function，通过这个插件可以直接在js逻辑生成对应的变量或者方法，然后你再去根据你的需求去初始化变量值和补充function逻辑即可，会节约你很多的时间，和初始化变量的coding负担。
 
-![demo](/assets/demo.gif)
+## VUE
+![vue](/assets/vue.gif)
+
+## JSX
+![jsx](/assets/jsx.gif)
 
 ## 🚀 支持
 - vue

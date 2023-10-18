@@ -7,7 +7,11 @@ Select the variable name to quickly provide the creation type, such as ref, comp
 
 Explain the function of this plug-in. Normally, when we write code, we write template first, such as el-input and then write events such as v-model or @click, and then go to the top to define ref, or function. Through this plug-in, you can directly generate the corresponding variable or method in js logic, and then you can initialize the variable value and supplement the function logic according to your needs, which will save you a lot of time and initialize the coding burden of variables.
 
-![demo](/assets/demo.gif)
+## VUE
+![vue](/assets/vue.gif)
+
+## JSX
+![jsx](/assets/jsx.gif)
 
 ## 🚀 Support
 - vue
