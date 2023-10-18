@@ -9,7 +9,11 @@
 
 ![demo](/assets/demo.gif)
 
-## 按键
+## 🚀 支持
+- vue
+- jsx (react)
+
+## ⌨️ 按键
 - win: ctrl+g
 - mac: cmd+g
 

@@ -9,7 +9,11 @@ Explain the function of this plug-in. Normally, when we write code, we write tem
 
 ![demo](/assets/demo.gif)
 
-## keybindings
+## 🚀 Support
+- vue
+- jsx (react)
+
+## ⌨️ Keybindings
 - win: ctrl+g
 - mac: cmd+g
 
