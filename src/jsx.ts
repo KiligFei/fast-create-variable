@@ -1,7 +1,7 @@
+import { nextTick } from 'node:process'
 import type { ArrowFunctionExpression, ClassMethod, FunctionDeclaration, VariableDeclaration } from '@babel/types'
 import { isArrayPattern, isArrowFunctionExpression, isClassMethod, isFunctionDeclaration, isJSXElement, isJSXFragment, isVariableDeclaration, traverse } from '@babel/types'
 import { createSelect, getLineText, getSelection, isInPosition, jumpToLine, message, updateText } from '@vscode-use/utils'
-import { nextTick } from 'node:process'
 import { Position } from 'vscode'
 import { EXPECTED_ERROR } from './constants'
 import { babelParse, isTypescript, logType } from './utils'
@@ -55,11 +55,11 @@ export async function createInJsx(activeText: string, title: string, prefixName:
   const options = prefixName.startsWith('on')
     ? ['function', 'arrowFunction']
     : [
-      'useState',
-      'useRef',
-      'function',
-      'arrowFunction',
-    ]
+        'useState',
+        'useRef',
+        'function',
+        'arrowFunction',
+      ]
   const isDuplicate = Array.from((targetFunction.body as any).body).some((item: any) => {
     if (isVariableDeclaration(item)) {
       const variable = (item as any).declarations[0].id

@@ -1,6 +1,6 @@
-import type { ParserOptions } from '@babel/parser';
-import { parse } from '@babel/parser';
-import * as vscode from 'vscode';
+import type { ParserOptions } from '@babel/parser'
+import { parse } from '@babel/parser'
+import * as vscode from 'vscode'
 
 export function babelParse(code: string) {
   const finalOptions: ParserOptions = {
