@@ -16,6 +16,7 @@ Explain the function of this plug-in. Normally, when we write code, we write tem
 ## 🚀 Support
 - vue
 - jsx (react)
+- svelte
 
 ## ⌨️ Keybindings
 - win: ctrl+g

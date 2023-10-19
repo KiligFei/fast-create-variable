@@ -16,6 +16,7 @@
 ## 🚀 支持
 - vue
 - jsx (react)
+- svelte
 
 ## ⌨️ 按键
 - win: ctrl+g
