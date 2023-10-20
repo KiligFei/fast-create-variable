@@ -1,6 +1,6 @@
 import type { ParserOptions } from '@babel/parser'
 import { parse } from '@babel/parser'
-import * as vscode from 'vscode'
+import { getActiveTextEditorLanguageId } from '@vscode-use/utils'
 
 export function babelParse(code: string) {
   const finalOptions: ParserOptions = {
@@ -16,22 +16,24 @@ export function babelParse(code: string) {
   }
 }
 
-export function isTypescript(): boolean {
-  const activeTextEditor = vscode.window.activeTextEditor;
-  if (activeTextEditor) {
-    const languageId = activeTextEditor.document.languageId;
-    return languageId === 'typescript' || languageId === 'typescriptreact';
-  }
-  return false;
+export function isTypescriptreact(): boolean {
+  const lan = getActiveTextEditorLanguageId()
+  if (lan === 'typescriptreact')
+    return true
+  return false
 }
 
-export function logType(str: string) {
-  const trimmedStr = str.trim();
-  if (trimmedStr === 'true' || trimmedStr === 'false') {
-    return 'boolean';
+export function isAddType(str: string): boolean | string {
+  if (isTypescriptreact()) {
+    if (str === 'true' || str === 'false') {
+      return 'boolean';
+    }
+    else if (str === '0') {
+      return 'number';
+    } else {
+      return false
+    }
+  } else {
+    return false
   }
-  if (!isNaN(Number(trimmedStr))) {
-    return 'number';
-  }
-  return typeof trimmedStr;
 }

@@ -4,7 +4,7 @@ import { isArrayPattern, isArrowFunctionExpression, isClassMethod, isFunctionDec
 import { createSelect, getLineText, getSelection, isInPosition, jumpToLine, message, updateText } from '@vscode-use/utils'
 import { Position } from 'vscode'
 import { EXPECTED_ERROR } from './constants'
-import { babelParse, isTypescript, logType } from './utils'
+import { babelParse, isAddType } from './utils'
 
 export async function createInJsx(activeText: string, title: string, prefixName: string) {
   const ast = babelParse(activeText)
@@ -113,11 +113,7 @@ export async function createInJsx(activeText: string, title: string, prefixName:
       })
       if (!v)
         return
-      if (isTypescript() && logType(v) === 'number' || logType(v) === 'boolean') {
-        insertText = `const [${title}, set${title[0].toUpperCase() + title.slice(1)}] = useState<${logType(v)}>(${v});`
-      } else {
-        insertText = `const [${title}, set${title[0].toUpperCase() + title.slice(1)}] = useState(${v});`
-      }
+      insertText = `const [${title}, set${title[0].toUpperCase() + title.slice(1)}] = useState${isAddType(v) ? `<${isAddType(v)}>` : ''}(${v});`;
       jumpLine = [loc.line + 1, insertText.length + 1]
       break
     }
