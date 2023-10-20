@@ -71,7 +71,7 @@ export async function createInVue(activeText: string, title: string, prefixName:
     return true
   }
 
-  const createVue3Methods = async (type?: 'function' | 'arrowFunction') => {
+  const createVue3Methods = async (type: 'function' | 'arrowFunction') => {
     const match = scriptSetup!.content.match(`const\\s+${title}\\s*=`) || scriptSetup!.content.match(`function\\s+${title}`)
     if (match) {
       message.error(`function: ${title} 已存在`)
@@ -98,31 +98,15 @@ export async function createInVue(activeText: string, title: string, prefixName:
     return true
   }
 
-  if (prefixName[0] === '@') {
-    // 直接创建methods
-    if (script) {
-      if (!createVue2Methods())
-        return
-    }
-    else if (scriptSetup) {
-      const _title = title.replace(/\([^\)]*\)/, '')
-      if (/['"\s\-\+\[\]]/.test(_title)) {
-        message.error('变量名不符合规范：不能包含空格、中括号、引号等特殊字符')
-        return
-      }
-      endLine = scriptSetup.loc.end.line
-      if (!await createVue3Methods())
-        return
-      msg = `已添加function：${title} `
-      insertPos = new Position(endLine - 1, 0)
-    }
-    mount()
-    return
-  }
-
   let options = scriptSetup
     ? ['ref', 'computed', 'reactive', 'function', 'arrowFunction', 'shallowRef', 'shallowReactive']
     : ['data', 'methods', 'computed', 'watch']
+
+  if (prefixName[0] === '@') {
+    options = scriptSetup
+      ? ['function', 'arrowFunction', 'ref', 'computed', 'reactive', 'shallowRef', 'shallowReactive']
+      : ['methods', 'data', 'computed', 'watch']
+  }
 
   let propInObj = ''
   if (scriptSetup && title.includes('.')) {
