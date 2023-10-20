@@ -22,7 +22,7 @@ export function isTypescriptreact(): boolean {
   return lan === 'typescriptreact'
 }
 
-export function isAddType(str: string): boolean | string {
+export function generateType(str: string): boolean | string {
   if (str === 'true' || str === 'false')
     return 'boolean'
 

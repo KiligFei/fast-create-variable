@@ -2,6 +2,7 @@ import { createRange, createSelect, getLineText, getPosition, jumpToLine, messag
 import { Position } from 'vscode'
 import { parse } from '@vue/compiler-sfc'
 import { useJSONParse } from 'lazy-js-utils'
+import { generateType } from './utils'
 
 const regexData = /data\s*\(\s*\)\s*{\s*return\s*{([\s\S]*?)\s*}\s*}/
 const dataNamesReg = /(\w+)\s*:\s*(?![^{}]*})/g
@@ -109,6 +110,7 @@ export async function createInVue(activeText: string, title: string, prefixName:
   }
 
   let propInObj = ''
+  let isTypescript = false
   if (scriptSetup && title.includes('.')) {
     endLine = scriptSetup.loc.end.line
     const _title = title.split('.')
@@ -190,6 +192,7 @@ export async function createInVue(activeText: string, title: string, prefixName:
     return
   }
   if (scriptSetup) {
+    isTypescript = scriptSetup.lang === 'ts'
     for (const matcher of scriptSetup.content.matchAll(setupVariableNameReg)) {
       const name = matcher[1]
       if (name === title) {
@@ -204,6 +207,9 @@ export async function createInVue(activeText: string, title: string, prefixName:
         return
       }
     }
+  }
+  else {
+    isTypescript = script?.lang === 'ts'
   }
 
   if (prefixName.startsWith('v-model') || notFunctionPrefix.some(n => prefixName.includes(n)))
@@ -391,7 +397,11 @@ export async function createInVue(activeText: string, title: string, prefixName:
         })
         if (!_v)
           return
-        insertText = `const ${title} = ref(${_v})`
+        if (isTypescript)
+          insertText = `const ${title} = ref<${generateType(_v)}>(${_v})`
+        else
+          insertText = `const ${title} = ref(${_v})`
+
         jumpLine = [endLine, insertText.length - 2]
         break
       }
@@ -408,9 +418,15 @@ export async function createInVue(activeText: string, title: string, prefixName:
         ], {
           placeHolder: '选择数据类型',
         })
+
         if (!_v)
           return
-        insertText = `const ${title} = shallowRef(${_v})`
+
+        if (isTypescript)
+          insertText = `const ${title} = shallowRef<${generateType(_v)}>(${_v})`
+        else
+          insertText = `const ${title} = shallowRef(${_v})`
+
         jumpLine = [endLine, insertText.length - 2]
         break
       }
@@ -421,9 +437,15 @@ export async function createInVue(activeText: string, title: string, prefixName:
         ], {
           placeHolder: '选择数据类型',
         })
+
         if (!_v)
           return
-        insertText = `const ${title} = reactive(${_v})`
+
+        if (isTypescript)
+          insertText = `const ${title} = reactive<${generateType(_v)}>(${_v})`
+        else
+          insertText = `const ${title} = reactive(${_v})`
+
         jumpLine = [endLine, insertText.length - 2]
         break
       }
@@ -434,9 +456,15 @@ export async function createInVue(activeText: string, title: string, prefixName:
         ], {
           placeHolder: '选择数据类型',
         })
+
         if (!_v)
           return
-        insertText = `const ${title} = shallowReactive(${_v})`
+
+        if (isTypescript)
+          insertText = `const ${title} = shallowReactive<${generateType(_v)}>(${_v})`
+        else
+          insertText = `const ${title} = shallowReactive(${_v})`
+
         jumpLine = [endLine, insertText.length - 2]
         break
       }
