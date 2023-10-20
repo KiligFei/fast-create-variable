@@ -18,22 +18,16 @@ export function babelParse(code: string) {
 
 export function isTypescriptreact(): boolean {
   const lan = getActiveTextEditorLanguageId()
-  if (lan === 'typescriptreact')
-    return true
-  return false
+
+  return lan === 'typescriptreact'
 }
 
 export function isAddType(str: string): boolean | string {
-  if (isTypescriptreact()) {
-    if (str === 'true' || str === 'false') {
-      return 'boolean';
-    }
-    else if (str === '0') {
-      return 'number';
-    } else {
-      return false
-    }
-  } else {
-    return false
-  }
+  if (str === 'true' || str === 'false')
+    return 'boolean'
+
+  if (str === '0')
+    return 'number'
+
+  return 'any'
 }
