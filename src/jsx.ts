@@ -4,7 +4,7 @@ import { isArrayPattern, isArrowFunctionExpression, isClassMethod, isFunctionDec
 import { createSelect, getLineText, getSelection, isInPosition, jumpToLine, message, updateText } from '@vscode-use/utils'
 import { Position } from 'vscode'
 import { EXPECTED_ERROR } from './constants'
-import { babelParse } from './utils'
+import { babelParse, isAddType, isTypescriptreact } from './utils'
 
 export async function createInJsx(activeText: string, title: string, prefixName: string) {
   const ast = babelParse(activeText)
@@ -99,6 +99,7 @@ export async function createInJsx(activeText: string, title: string, prefixName:
       return
     }
   }
+  const isTypescript = isTypescriptreact()
   switch (v) {
     case 'useState': {
       const v = await createSelect([
@@ -115,8 +116,13 @@ export async function createInJsx(activeText: string, title: string, prefixName:
       })
       if (!v)
         return
-      insertText = `const [${title}, set${title[0].toUpperCase() + title.slice(1)}] = useState(${v});`
-      jumpLine = [loc.line + 1, insertText.length + 1]
+      
+      if (isTypescript)
+        insertText = `const [${title}, set${title[0].toUpperCase() + title.slice(1)}] = useState<${isAddType(v)}>(${v});`
+      else
+        insertText = `const [${title}, set${title[0].toUpperCase() + title.slice(1)}] = useState(${v});`
+
+      jumpLine = [loc.line + 1, insertText.length - 1]
       break
     }
     case 'useRef': {
@@ -134,8 +140,13 @@ export async function createInJsx(activeText: string, title: string, prefixName:
       })
       if (!v)
         return
-      insertText = `const ${title} = useRef(${v});`
-      jumpLine = [loc.line + 1, insertText.length + 1]
+
+      if (isTypescript)
+        insertText = `const ${title} = useRef<${isAddType(v)}>(${v});`
+      else
+        insertText = `const ${title} = useRef(${v});`
+
+      jumpLine = [loc.line + 1, insertText.length - 1]
       break
     }
     case 'function': {
