@@ -1,7 +1,6 @@
-import { nextTick } from 'node:process'
 import type { ArrowFunctionExpression, ClassMethod, FunctionDeclaration, VariableDeclaration } from '@babel/types'
 import { isArrayPattern, isArrowFunctionExpression, isClassMethod, isFunctionDeclaration, isJSXElement, isJSXFragment, isVariableDeclaration, traverse } from '@babel/types'
-import { createSelect, getLineText, getSelection, isInPosition, jumpToLine, message, updateText } from '@vscode-use/utils'
+import { createSelect, getLineText, getSelection, isInPosition, jumpToLine, message, nextTick, updateText } from '@vscode-use/utils'
 import { Position } from 'vscode'
 import { EXPECTED_ERROR } from './constants'
 import { babelParse, generateType, isTypescriptreact } from './utils'
@@ -174,12 +173,12 @@ export async function createInJsx(activeText: string, title: string, prefixName:
       jumpLine = [loc.line + 2, insertText.length - 2]
       break
     }
-    case 'useCallback':{
+    case 'useCallback': {
       insertText = `const ${title} = useCallback(() => {\n${emptyStr}  \n${emptyStr}}, []);`
       jumpLine = [loc.line + 2, insertText.length - 2]
       break
     }
-    case 'useMemo':{
+    case 'useMemo': {
       insertText = `const ${title} = useMemo(() => {\n${emptyStr}  \n${emptyStr}}, []);`
       jumpLine = [loc.line + 2, insertText.length - 2]
       break
