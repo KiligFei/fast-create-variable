@@ -32,13 +32,14 @@ export async function createInVue(activeText: string, title: string, prefixName:
     })
   }
   const {
-    descriptor: { script, scriptSetup },
+    descriptor: { script, scriptSetup, styles },
     errors,
   } = parse(activeText)
 
   if (errors.length)
     return
 
+  const getScopedStyle = styles.find(item => item.scoped)
   let insertText = ''
   let msg = ''
   let jumpLine: [number, number]
@@ -102,13 +103,17 @@ export async function createInVue(activeText: string, title: string, prefixName:
   let options = scriptSetup
     ? ['ref', 'computed', 'reactive', 'function', 'arrowFunction', 'shallowRef', 'shallowReactive']
     : ['data', 'methods', 'computed', 'watch']
-
   if (prefixName[0] === '@') {
     options = scriptSetup
       ? ['function', 'arrowFunction', 'ref', 'computed', 'reactive', 'shallowRef', 'shallowReactive']
       : ['methods', 'data', 'computed', 'watch']
   }
-
+  else if (['class', ':class', 'id', ':id'].includes(prefixName)) {
+    // 创建style
+    options = scriptSetup
+      ? ['scopedCss', 'function', 'arrowFunction', 'ref', 'computed', 'reactive', 'shallowRef', 'shallowReactive']
+      : ['scopedCss', 'methods', 'data', 'computed', 'watch']
+  }
   let propInObj = ''
   let isTypescript = false
   if (scriptSetup && title.includes('.')) {
@@ -223,21 +228,24 @@ export async function createInVue(activeText: string, title: string, prefixName:
     return
 
   title = title.replace(/=/, '')
-  if (v !== 'function' && v !== 'methods') {
-    title = title.replace(/\([^\)]*\)/, '')
-    title = title.split(' ')[0]
-    if (/['"\s\-\[\]]/.test(title)) {
-      message.error('变量名不符合规范：不能包含空格、中括号、引号等特殊字符')
-      return
+  if (v !== 'scopedCss') {
+    if (!['function', 'methods'].includes(v)) {
+      title = title.replace(/\([^\)]*\)/, '')
+      title = title.split(' ')[0]
+      if (/['"\s\-\[\]]/.test(title)) {
+        message.error('变量名不符合规范：不能包含空格、中括号、引号等特殊字符')
+        return
+      }
+    }
+    else {
+      const _title = title.replace(/\([^\)]*\)/, '')
+      if (/['"\s\-\+\[\]]/.test(_title)) {
+        message.error('变量名不符合规范：不能包含空格、中括号、引号等特殊字符')
+        return
+      }
     }
   }
-  else {
-    const _title = title.replace(/\([^\)]*\)/, '')
-    if (/['"\s\-\+\[\]]/.test(_title)) {
-      message.error('变量名不符合规范：不能包含空格、中括号、引号等特殊字符')
-      return
-    }
-  }
+
   if (script) {
     // vue2
     // todos: 若未能匹配到，创建methods、data、watch、computed
@@ -375,6 +383,40 @@ export async function createInVue(activeText: string, title: string, prefixName:
         msg = `已在watch中添加: ${title} 方法`
         break
       }
+      case 'scopedCss': {
+        let hasScopedCss = true
+        if (!getScopedStyle) {
+          // 如果没有创建再最底部
+          const index = activeText.indexOf('</style>')
+          if (index < 0) {
+            // 创建
+            const { line } = getPosition(activeText.length)
+            endLine = line
+            hasScopedCss = false
+          }
+          else {
+            const { line } = getPosition(index)
+            endLine = line + 1
+          }
+        }
+        else {
+          const loc = getScopedStyle.loc
+          endLine = loc.end.line
+        }
+        const isDeep = await createSelect(['use deep scope', 'not deep scope'])
+        if (!isDeep)
+          return
+
+        insertText = `${isDeep === 'use deep scope' ? '::v-deep ' : ''}${prefixName.includes('class') ? '.' : '#'}${title} {\n  \n}\n`
+        if (!hasScopedCss) {
+          insertText = `\n<style scoped>\n${insertText}</style>`
+          jumpLine = [endLine + 3, insertText.length - 2]
+        }
+        else {
+          jumpLine = [endLine + 1, insertText.length - 2]
+        }
+        insertPos = new Position(endLine - 1, 0)
+      }
     }
   }
   else if (scriptSetup) {
@@ -482,6 +524,39 @@ export async function createInVue(activeText: string, title: string, prefixName:
         insertText = `const ${title} = computed(() => {\n  \n})`
         jumpLine = [endLine + 1, insertText.length - 2]
         break
+      }
+      case 'scopedCss': {
+        let hasScopedCss = true
+        if (!getScopedStyle) {
+          // 如果没有创建再最底部
+          const index = activeText.indexOf('</style>')
+          if (index < 0) {
+            // 创建
+            const { line } = getPosition(activeText.length)
+            endLine = line
+            hasScopedCss = false
+          }
+          else {
+            const { line } = getPosition(index)
+            endLine = line + 1
+          }
+        }
+        else {
+          const loc = getScopedStyle.loc
+          endLine = loc.end.line
+        }
+        const isDeep = await createSelect(['use deep scope', 'not deep scope'])
+        if (!isDeep)
+          return
+
+        insertText = `${isDeep === 'use deep scope' ? '::v-deep ' : ''}${prefixName.includes('class') ? '.' : '#'}${title} {\n  \n}`
+        if (!hasScopedCss) {
+          insertText = `\n<style scoped>\n${insertText}\n</style>`
+          jumpLine = [endLine + 3, insertText.length - 2]
+        }
+        else {
+          jumpLine = [endLine + 1, insertText.length - 2]
+        }
       }
     }
     msg = propInObj
