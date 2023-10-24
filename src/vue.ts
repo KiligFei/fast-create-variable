@@ -24,7 +24,7 @@ export async function createInVue(activeText: string, title: string, prefixName:
     else
       activeText = activeText.replace('</script>', '\n// hi</script>')
 
-    updateTextWord = emptySetupMatch[0].replace('</script>', '\n</script>')
+    updateTextWord = emptySetupMatch[0].replace(/\n*<\/script>/, '\n</script>')
 
     const { line, column } = getPosition(emptySetupMatch.index!)
     updateEmptySetup = () => updateText((edit) => {
@@ -32,14 +32,13 @@ export async function createInVue(activeText: string, title: string, prefixName:
     })
   }
   const {
-    descriptor: { script, scriptSetup, styles },
+    descriptor: { script, scriptSetup },
     errors,
   } = parse(activeText)
 
   if (errors.length)
     return
 
-  const getScopedStyle = styles.find(item => item.scoped)
   let insertText = ''
   let msg = ''
   let jumpLine: [number, number]
@@ -385,24 +384,19 @@ export async function createInVue(activeText: string, title: string, prefixName:
       }
       case 'scopedCss': {
         let hasScopedCss = true
-        if (!getScopedStyle) {
-          // 如果没有创建再最底部
-          const index = activeText.indexOf('</style>')
-          if (index < 0) {
-            // 创建
-            const { line } = getPosition(activeText.length)
-            endLine = line
-            hasScopedCss = false
-          }
-          else {
-            const { line } = getPosition(index)
-            endLine = line + 1
-          }
+        // 如果没有创建再最底部
+        const index = activeText.indexOf('</style>')
+        if (index < 0) {
+          // 创建
+          const { line } = getPosition(activeText.length)
+          endLine = line + 2
+          hasScopedCss = false
         }
         else {
-          const loc = getScopedStyle.loc
-          endLine = loc.end.line
+          const { line } = getPosition(index)
+          endLine = line + 1
         }
+
         const isDeep = await createSelect(['use deep scope', 'not deep scope'])
         if (!isDeep)
           return
@@ -527,24 +521,19 @@ export async function createInVue(activeText: string, title: string, prefixName:
       }
       case 'scopedCss': {
         let hasScopedCss = true
-        if (!getScopedStyle) {
-          // 如果没有创建再最底部
-          const index = activeText.indexOf('</style>')
-          if (index < 0) {
-            // 创建
-            const { line } = getPosition(activeText.length)
-            endLine = line
-            hasScopedCss = false
-          }
-          else {
-            const { line } = getPosition(index)
-            endLine = line + 1
-          }
+        // 如果没有创建再最底部
+        const index = activeText.indexOf('</style>')
+        if (index < 0) {
+          // 创建
+          const { line } = getPosition(activeText.length)
+          endLine = line + 1
+          hasScopedCss = false
         }
         else {
-          const loc = getScopedStyle.loc
-          endLine = loc.end.line
+          const { line } = getPosition(index)
+          endLine = line + 1
         }
+
         const isDeep = await createSelect(['use deep scope', 'not deep scope'])
         if (!isDeep)
           return
