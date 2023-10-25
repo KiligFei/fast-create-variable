@@ -100,11 +100,11 @@ export async function createInVue(activeText: string, title: string, prefixName:
   }
 
   let options = scriptSetup
-    ? ['ref', 'computed', 'reactive', 'function', 'arrowFunction', 'shallowRef', 'shallowReactive']
+    ? ['ref', 'computed', 'reactive', 'function', 'arrowFunction', 'shallowRef', 'shallowReactive', 'defineProps', 'defineEmits']
     : ['data', 'methods', 'computed', 'watch']
   if (prefixName[0] === '@') {
     options = scriptSetup
-      ? ['function', 'arrowFunction', 'ref', 'computed', 'reactive', 'shallowRef', 'shallowReactive']
+      ? ['function', 'arrowFunction', 'ref', 'computed', 'reactive', 'shallowRef', 'shallowReactive', 'defineProps', 'defineEmits']
       : ['methods', 'data', 'computed', 'watch']
   }
   else if (['class', ':class', 'id', ':id'].includes(prefixName)) {
@@ -416,6 +416,13 @@ export async function createInVue(activeText: string, title: string, prefixName:
   else if (scriptSetup) {
     // vue3
     endLine = scriptSetup.loc.end.line
+    const startOffset = scriptSetup.loc.start.offset + getLastImportOffset(scriptSetup.content)
+    const start_position = getPosition(startOffset)
+    const endOffset = getFirstFn(scriptSetup.content)
+
+    const end_position = endOffset
+      ? getPosition(endOffset + scriptSetup.loc.start.offset)
+      : new Position(endLine, 0)
 
     switch (v) {
       case 'ref': {
@@ -438,7 +445,8 @@ export async function createInVue(activeText: string, title: string, prefixName:
         else
           insertText = `const ${title} = ref(${_v})`
 
-        jumpLine = [endLine, insertText.length - 2]
+        insertPos = new Position(end_position.line, 0)
+        jumpLine = [end_position.line + 1, insertText.length - 2]
         break
       }
       case 'shallowRef': {
@@ -463,7 +471,9 @@ export async function createInVue(activeText: string, title: string, prefixName:
         else
           insertText = `const ${title} = shallowRef(${_v})`
 
-        jumpLine = [endLine, insertText.length - 2]
+        insertPos = new Position(end_position.line, 0)
+        jumpLine = [end_position.line + 1, insertText.length - 2]
+
         break
       }
       case 'reactive': {
@@ -482,7 +492,9 @@ export async function createInVue(activeText: string, title: string, prefixName:
         else
           insertText = `const ${title} = reactive(${_v})`
 
-        jumpLine = [endLine, insertText.length - 2]
+        insertPos = new Position(end_position.line, 0)
+        jumpLine = [end_position.line + 1, insertText.length - 2]
+
         break
       }
       case 'shallowReactive': {
@@ -501,22 +513,31 @@ export async function createInVue(activeText: string, title: string, prefixName:
         else
           insertText = `const ${title} = shallowReactive(${_v})`
 
-        jumpLine = [endLine, insertText.length - 2]
+        insertPos = new Position(end_position.line, 0)
+        jumpLine = [end_position.line + 1, insertText.length - 2]
+
         break
       }
       case 'function': {
         if (!await createVue3Methods('function'))
           return
+        insertPos = new Position(endLine - 1, 0)
+
         break
       }
       case 'arrowFunction': {
         if (!await createVue3Methods('arrowFunction'))
           return
+        insertPos = new Position(end_position.line, 0)
+        jumpLine = [end_position.line + 2, insertText.length - 2]
+
         break
       }
       case 'computed': {
         insertText = `const ${title} = computed(() => {\n  \n})`
         jumpLine = [endLine + 1, insertText.length - 2]
+        insertPos = new Position(end_position.line, 0)
+        jumpLine = [end_position.line + 2, insertText.length - 2]
         break
       }
       case 'scopedCss': {
@@ -546,12 +567,64 @@ export async function createInVue(activeText: string, title: string, prefixName:
         else {
           jumpLine = [endLine + 1, insertText.length - 2]
         }
+        insertPos = new Position(endLine - 1, 0)
+        break
+      }
+      case 'defineProps': {
+        const match = scriptSetup.content.match(/defineProps\(([^\)]*)\)/)
+        if (match) {
+          const obj = useJSONParse(match[1])
+          if (title in obj) {
+            message.error(`defineProps中已定义了该属性: ${title}`)
+            return
+          }
+          insertText = ` ${title}: '',`
+          const offset = match.index! + match[0].indexOf(match[1]) + scriptSetup.loc.start.offset + 2
+          const offsetPosition = getPosition(offset)
+          isExistTitle = true
+          const lineText = getLineText(offsetPosition.line)
+          const startPix = lineText.indexOf(match[0])
+          if (startPix < 0) {
+            insertText = insertText.slice(1)
+            insertText += '\n  '
+          }
+          jumpLine = [offsetPosition.line + 1, startPix + match[0].indexOf(match[1]) + insertText.length - 1]
+          insertPos = new Position(offsetPosition.line, startPix < 0 ? 2 : startPix + match[0].indexOf(match[1]) + 1)
+        }
+        else {
+          insertText = `const props = defineProps({\n  ${title}: '' \n})`
+          insertPos = new Position(start_position.line + 1, 0)
+          jumpLine = [start_position.line + 3, title.length + 5]
+        }
+        break
+      }
+      case 'defineEmits': {
+        const match = scriptSetup.content.match(/defineEmits\(([^\)]*)\)/)
+        if (match) {
+          if (match[1] && match[1].replace(/[\[\]]/g, '').split(',').includes(title)) {
+            message.error(`defineEmits中已定义了该属性: ${title}`)
+            return
+          }
+          insertText = match[1] ? `'${title}', ` : `['${title}']`
+          const offset = match.index! + match[0].indexOf(match[1]) + 2 + scriptSetup.loc.start.offset
+          const offsetPosition = getPosition(offset)
+          isExistTitle = true
+          const lineText = getLineText(offsetPosition.line)
+          const startPix = lineText.indexOf(match[0])
+          jumpLine = [offsetPosition.line + 1, startPix + match[0].indexOf(match[1]) + insertText.length - 2]
+          insertPos = new Position(offsetPosition.line, startPix + match[0].indexOf(match[1]) + 1)
+        }
+        else {
+          insertText = `const emits = defineEmits(['${title}'])`
+          insertPos = new Position(start_position.line + 1, 0)
+          jumpLine = [start_position.line + 2, insertText.length - 3]
+        }
+        break
       }
     }
     msg = propInObj
       ? `已添加${v}：${title}.${propInObj}`
       : `已添加${v}：${title}`
-    insertPos = new Position(endLine - 1, 0)
   }
   else {
     return
@@ -570,4 +643,47 @@ export async function createInVue(activeText: string, title: string, prefixName:
       })
     })
   }
+}
+
+const IMPORT_REG = /import .* from\s+['"][^'"]+/g
+
+export function getLastImportOffset(code: string) {
+  let last = null
+  for (const match of code.matchAll(IMPORT_REG))
+    last = match
+
+  if (last) {
+    const index = last.index!
+    const offset = index + last[0].length
+    return offset
+  }
+  return 0
+}
+
+const FUNCTION_REG = /function\s+.*\([^\)]*\)\s*{/
+
+export function getLastFunctionOffset(code: string) {
+  const first = code.match(FUNCTION_REG)
+
+  if (first) {
+    const index = first.index!
+    const offset = index + first[0].length
+    return offset
+  }
+  return 0
+}
+
+const ARROW_FUNCTION_REG = /(const|let|var)\s+.*=\s+\([^\)]*\)\s+=>/
+const Life_REG = /(watch|watchEffect|onMounted|onBeforeMount|onBeforeUnmount|onUnmounted|onBeforeUpdate|onDeactivated)\(\(/
+
+export function getFirstFn(code: string) {
+  const life = code.match(Life_REG)
+  const arrowFn = code.match(ARROW_FUNCTION_REG)
+  if (life && arrowFn)
+    return life.index! < arrowFn.index! ? life.index! + life[0].length : arrowFn.index! + arrowFn[0].length
+  if (life)
+    return life.index! + life[0].length
+  if (arrowFn)
+    return arrowFn.index! + arrowFn[0].length
+  return getLastFunctionOffset(code)
 }
