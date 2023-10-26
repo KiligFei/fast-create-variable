@@ -130,7 +130,16 @@ export async function createInVue(activeText: string, title: string, prefixName:
     if (isExistTitle) {
       const match = scriptSetup.content.match(`(?:const|let|var)\\s+${title}\\s*=\\s*(?:ref|reactive)\\([\\s\\n]*{([\\s\\S]*?)}[\\s\\n]*\\)`)
       if (match) {
-        const obj = useJSONParse(`{${match[1]}}`)
+        let obj: any = {}
+        try {
+          obj = useJSONParse(`{${match[1]}}`)
+        }
+        catch (e) {
+          match[1].trim().replace(/\n+/g, '\n').split('\n').forEach((item) => {
+            const [key, val] = item.split(':')
+            obj[key.trim()] = val.trim()
+          })
+        }
         if (obj[propInObj] !== undefined) {
           message.error(`该变量名[${title}.${propInObj}]已存在`)
           return
@@ -573,7 +582,16 @@ export async function createInVue(activeText: string, title: string, prefixName:
       case 'defineProps': {
         const match = scriptSetup.content.match(/defineProps\(([^\)]*)\)/)
         if (match) {
-          const obj = useJSONParse(match[1])
+          let obj: any = {}
+          try {
+            obj = useJSONParse(`{${match[1]}}`)
+          }
+          catch (e) {
+            match[1].trim().replace(/\n+/g, '\n').split('\n').forEach((item) => {
+              const [key, val] = item.split(':')
+              obj[key.trim()] = val.trim()
+            })
+          }
           if (title in obj) {
             message.error(`defineProps中已定义了该属性: ${title}`)
             return
