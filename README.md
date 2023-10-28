@@ -22,6 +22,21 @@ Explain the function of this plug-in. Normally, when we write code, we write tem
 - win: ctrl+g
 - mac: cmd+g
 
+## Configuration
+```javascript
+    "configuration": {
+      "type": "object",
+      "title": "fast-create-variable",
+      "properties": {
+        "fast-create-variable.atTop": {
+          "type": "boolean",
+          "default": true,
+          "description": "Generate data, methods, etc. for vue2 at the top or at the bottom"
+        }
+      }
+    }
+```
+
 ## :coffee:
 
 [buy me a cup of coffee](https://github.com/Simon-He95/sponsor)

@@ -60,7 +60,18 @@
         "key": "ctrl+g",
         "when": "!isMac"
       }
-    ]
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "fast-create-variable",
+      "properties": {
+        "fast-create-variable.atTop": {
+          "type": "boolean",
+          "default": true,
+          "description": "Generate data, methods, etc. for vue2 at the top or at the bottom"
+        }
+      }
+    }
   },
   "scripts": {
     "dev": "pnpm build --watch",

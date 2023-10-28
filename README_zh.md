@@ -22,6 +22,21 @@
 - win: ctrl+g
 - mac: cmd+g
 
+## Configuration
+```javascript
+    "configuration": {
+      "type": "object",
+      "title": "fast-create-variable",
+      "properties": {
+        "fast-create-variable.atTop": {
+          "type": "boolean",
+          "default": true,
+          "description": "生成 data, methods, etc. 在 vue2 中的顶部或者底部"
+        }
+      }
+    }
+```
+
 ## :coffee:
 
 [请我喝一杯咖啡](https://github.com/Simon-He95/sponsor)
