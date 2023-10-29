@@ -30,7 +30,7 @@ Explain the function of this plug-in. Normally, when we write code, we write tem
       "properties": {
         "fast-create-variable.atTop": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "description": "Generate data, methods, etc. for vue2 at the top or at the bottom"
         }
       }

@@ -30,7 +30,7 @@
       "properties": {
         "fast-create-variable.atTop": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "description": "生成 data, methods, etc. 在 vue2 中的顶部或者底部"
         }
       }
