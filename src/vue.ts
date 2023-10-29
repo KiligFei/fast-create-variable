@@ -45,52 +45,24 @@ export async function createInVue(activeText: string, title: string, prefixName:
   const createVue2Methods = () => {
     const { content, loc } = script!
     const ast = babelParse(content)
-    const methods = getVue2ObjectName(ast, 'methods')
-    if (!methods) {
-      message.error('需要事先定义好methods对象')
-      return
-    }
-    if (methods.value.properties.some((prop: any) => prop.key.name === title)) {
-      message.error(`methods中该方法名[${title}]已存在`)
-      return
-    }
-    if (atTop) {
-      const offset = loc.start.offset + methods.value.loc.start.index + 1
-      const { line } = getPosition(offset)
-      const emptyLen = 4
-      const temp = ' '.repeat(emptyLen)
-      insertText = `\n${temp}${title}(){\n  ${temp}\n${temp}}${methods.value.properties.length === 0 ? '\n  ' : ','}`
-      const pix = getLineText(line).endsWith('}') ? (getLineText(line).length - 1) : getLineText(line).length
-      insertPos = new Position(line, pix)
-      jumpLine = [line + 3, emptyLen + 2]
+
+    const fnMatch = title.match(/\(([^\)]*)\)/)
+    if (fnMatch) {
+      title = title.slice(0, fnMatch.index!)
+      commonFunction(ast, 'methods', loc, `${title}(${fnMatch[1].split(',').map((item, i) => `p${i + 1}`).join(', ')})`)
     }
     else {
-      const offset = loc.start.offset + methods.value.loc.end.index - 1
-      const { line } = getPosition(offset)
-      if (methods.value.properties.length === 0 && getLineText(line).endsWith('}')) {
-        const lineText = getLineText(line)
-        const emptyLen = 4
-        const temp = ' '.repeat(emptyLen)
-        insertText = `\n${temp}${title}(){\n  ${temp}\n${temp}}\n  `
-        insertPos = new Position(line, lineText.length - 1)
-        jumpLine = [line + 3, emptyLen + 2]
-      }
-      else {
-        const lineText = getLineText(line - 1)
-        const hasComma = lineText.trim().slice(-1) === ','
-        const emptyLen = 4
-        const temp = ' '.repeat(emptyLen)
-        insertText = `${hasComma ? '' : ','}\n${temp}${title}(){\n  ${temp}\n${temp}}`
-        insertPos = new Position(line - 1, lineText.length)
-        jumpLine = [line + 2, emptyLen + 2]
-      }
+      commonFunction(ast, 'methods', loc)
     }
-    msg = `已在methods中添加: ${title} 方法`
 
     return true
   }
 
   const createVue3Methods = async (type: 'function' | 'arrowFunction') => {
+    const fnMatch = title.match(/\(([^\)]*)\)/)
+    if (fnMatch)
+      title = title.slice(0, fnMatch.index)
+
     const match = scriptSetup!.content.match(`const\\s+${title}\\s*=`) || scriptSetup!.content.match(`function\\s+${title}`)
     if (match) {
       message.error(`function: ${title} 已存在`)
@@ -100,13 +72,10 @@ export async function createInVue(activeText: string, title: string, prefixName:
       type = (await createSelect(['function', 'arrowFunction'])) as 'function' | 'arrowFunction'
     if (!type)
       return
-    const fnMatch = title.match(/\(([^\)]*)\)/)
-
     if (fnMatch) {
-      let i = 0
       insertText = type === 'arrowFunction'
-        ? `const ${title.replace(fnMatch[0], '')} = (${fnMatch[1].replace(/'[^']*'/g, () => `p${i++}`)}) => {\n  \n}`
-        : `function ${title.replace(fnMatch[0], '')}(${fnMatch[1].replace(/'[^']*'/g, () => `p${i++}`)}) {\n  \n}`
+        ? `const ${title.replace(fnMatch[0], '')} = (${fnMatch[1].split(',').map((item, i) => `p${i + 1}`).join(', ')}) => {\n  \n}`
+        : `function ${title.replace(fnMatch[0], '')}(${fnMatch[1].split(',').map((item, i) => `p${i + 1}`).join(', ')}) {\n  \n}`
     }
     else {
       insertText = type === 'arrowFunction'
@@ -255,7 +224,7 @@ export async function createInVue(activeText: string, title: string, prefixName:
 
   title = title.replace(/=/, '')
   if (v !== 'scopedCss') {
-    if (!['function', 'methods'].includes(v)) {
+    if (!['function', 'arrowFunction', 'methods'].includes(v)) {
       title = title.replace(/\([^\)]*\)/, '')
       title = title.split(' ')[0]
       if (/['"\s\-\[\]]/.test(title)) {
@@ -366,7 +335,7 @@ export async function createInVue(activeText: string, title: string, prefixName:
           const _loc = returnData.loc
           const emptyLen = 6
           const temp = ' '.repeat(emptyLen)
-          const offset = loc.start.offset + _loc.end.index - 1
+          const offset = loc.start.offset + (atTop ? _loc.start.index + 1 : _loc.end.index - 1)
           const { line } = getPosition(offset)
           if (returnData.argument.properties.length === 0) {
             const lineText = getLineText(line)
@@ -376,11 +345,26 @@ export async function createInVue(activeText: string, title: string, prefixName:
             jumpLine = [line + 2, emptyLen + title.length + 3]
           }
           else {
-            const lineText = getLineText(line - 1)
-            const hasComma = lineText.endsWith(',')
-            insertText = `${hasComma ? '' : ','}\n${temp}${title}: ${_v}`
-            insertPos = new Position(line - 1, lineText.length)
-            jumpLine = [line + 1, `${temp}${title}: ${_v}`.length - 1]
+            if (atTop) {
+              const lineText = getLineText(line)
+              if (/},?$/.test(lineText)) {
+                insertText = `\n${temp}${title}: ${_v}\n  `
+                insertPos = new Position(line, getLineText(line).length - (lineText.endsWith(',') ? 2 : 1))
+                jumpLine = [line + 3, `${temp}${title}: ${_v}`.length - 1]
+              }
+              else {
+                insertText = `\n${temp}${title}: ${_v},`
+                insertPos = new Position(line, lineText.length)
+                jumpLine = [line + 2, `${temp}${title}: ${_v}`.length - 1]
+              }
+            }
+            else {
+              const lineText = getLineText(line - 1)
+              const hasComma = lineText.endsWith(',')
+              insertText = `${hasComma ? '' : ','}\n${temp}${title}: ${_v}`
+              insertPos = new Position(line - 1, lineText.length)
+              jumpLine = [line + 1, `${temp}${title}: ${_v}`.length - 1]
+            }
           }
           msg = `已在data中添加: ${title} 属性`
         }
@@ -394,147 +378,12 @@ export async function createInVue(activeText: string, title: string, prefixName:
       }
       case 'computed': {
         const ast = babelParse(content)
-        const computed = getVue2ObjectName(ast, 'computed')
-        if (!computed) {
-          message.error('需要事先定义好computed对象')
-          return
-        }
-
-        if (computed.value.properties.some((item: any) => item.key.value === title)) {
-          message.error(`computed中该方法名[${title}]已存在`)
-          return
-        }
-
-        const emptyLen = 4
-
-        if (atTop) {
-          if (computed.value.properties.length === 0) {
-            const offset = loc.start.offset + computed.loc.start.index + 1
-            const { line } = getPosition(offset)
-            const lineText = getLineText(line)
-            const temp = ' '.repeat(emptyLen)
-            if (/},?$/.test(lineText)) {
-              insertText = `${lineText.trim() ? '\n' : ''}${temp}${title}(newV, oldV){\n  ${temp}\n${temp}},\n  `
-              insertPos = new Position(line, getLineText(line).length - (lineText.endsWith(',') ? 2 : 1))
-              jumpLine = [line + 3, emptyLen + 2]
-            }
-            else {
-              insertText = `${lineText.trim() ? '\n' : ''}${temp}${title}(newV, oldV){\n  ${temp}\n${temp}},`
-              insertPos = new Position(line, lineText.length)
-              jumpLine = [line + 3, emptyLen + 2]
-            }
-          }
-          else {
-            const offset = loc.start.offset + computed.loc.end.index - 1
-            const { line } = getPosition(offset)
-            const lineText = getLineText(line - 1)
-            const hasComma = lineText.endsWith(',')
-            const temp = ' '.repeat(emptyLen)
-            insertText = `${hasComma ? '' : ','}${lineText.trim() ? '\n' : ''}${temp}${title}(newV, oldV){\n  ${temp}\n${temp}},`
-            insertPos = new Position(line - 1, lineText.length)
-            jumpLine = [line + 2, emptyLen + 2]
-          }
-          msg = `已在computed中添加: ${title} 方法`
-        }
-        else {
-          const offset = loc.start.offset + computed.loc.end.index - 1
-          const { line } = getPosition(offset)
-          const lineText = getLineText(line - 1)
-          if (computed.value.properties.length === 0) {
-            const temp = ' '.repeat(emptyLen)
-            if (/},?$/.test(lineText)) {
-              insertText = `${lineText.trim() ? '\n' : ''}${temp}${title}(newV, oldV){\n  ${temp}\n${temp}},\n  `
-              insertPos = new Position(line, getLineText(line).length - (lineText.endsWith(',') ? 2 : 1))
-              jumpLine = [line + 3, emptyLen + 2]
-            }
-            else {
-              insertText = `${lineText.trim() ? '\n' : ''}${temp}${title}(newV, oldV){\n  ${temp}\n${temp}},`
-              insertPos = new Position(line - 1, lineText.length)
-              jumpLine = [line + 2, emptyLen + 2]
-            }
-          }
-          else {
-            const hasComma = lineText.endsWith(',')
-            const temp = ' '.repeat(emptyLen)
-            insertText = `${hasComma ? '' : ','}${lineText.trim() ? '\n' : ''}${temp}${title}(newV, oldV){\n  ${temp}\n${temp}},`
-            insertPos = new Position(line - 1, lineText.length)
-            jumpLine = [line + 2, emptyLen + 2]
-          }
-          msg = `已在computed中添加: ${title} 方法`
-        }
+        commonFunction(ast, 'computed', loc)
         break
       }
       case 'watch': {
         const ast = babelParse(content)
-        const watch = getVue2ObjectName(ast, 'watch')
-        if (!watch) {
-          message.error('需要事先定义好watch对象')
-          return
-        }
-
-        if (watch.value.properties.some((item: any) => item.key.value === title)) {
-          message.error(`watch中该方法名[${title}]已存在`)
-          return
-        }
-
-        const emptyLen = 4
-
-        if (atTop) {
-          if (watch.value.properties.length === 0) {
-            const offset = loc.start.offset + watch.loc.start.index + 1
-            const { line } = getPosition(offset)
-            const lineText = getLineText(line)
-            const temp = ' '.repeat(emptyLen)
-            if (/},?$/.test(lineText)) {
-              insertText = `${lineText.trim() ? '\n' : ''}${temp}${title}(newV, oldV){\n  ${temp}\n${temp}},\n  `
-              insertPos = new Position(line, getLineText(line).length - (lineText.endsWith(',') ? 2 : 1))
-              jumpLine = [line + 3, emptyLen + 2]
-            }
-            else {
-              insertText = `${lineText.trim() ? '\n' : ''}${temp}${title}(newV, oldV){\n  ${temp}\n${temp}},`
-              insertPos = new Position(line, lineText.length)
-              jumpLine = [line + 3, emptyLen + 2]
-            }
-          }
-          else {
-            const offset = loc.start.offset + watch.loc.end.index - 1
-            const { line } = getPosition(offset)
-            const lineText = getLineText(line - 1)
-            const hasComma = lineText.endsWith(',')
-            const temp = ' '.repeat(emptyLen)
-            insertText = `${hasComma ? '' : ','}${lineText.trim() ? '\n' : ''}${temp}${title}(newV, oldV){\n  ${temp}\n${temp}},`
-            insertPos = new Position(line - 1, lineText.length)
-            jumpLine = [line + 2, emptyLen + 2]
-          }
-          msg = `已在watch中添加: ${title} 方法`
-        }
-        else {
-          const offset = loc.start.offset + watch.loc.end.index - 1
-          const { line } = getPosition(offset)
-          const lineText = getLineText(line - 1)
-          if (watch.value.properties.length === 0) {
-            const temp = ' '.repeat(emptyLen)
-            if (/},?$/.test(lineText)) {
-              insertText = `${lineText.trim() ? '\n' : ''}${temp}${title}(newV, oldV){\n  ${temp}\n${temp}},\n  `
-              insertPos = new Position(line, getLineText(line).length - (lineText.endsWith(',') ? 2 : 1))
-              jumpLine = [line + 3, emptyLen + 2]
-            }
-            else {
-              insertText = `${lineText.trim() ? '\n' : ''}${temp}${title}(newV, oldV){\n  ${temp}\n${temp}},`
-              insertPos = new Position(line - 1, lineText.length)
-              jumpLine = [line + 2, emptyLen + 2]
-            }
-          }
-          else {
-            const hasComma = lineText.endsWith(',')
-            const temp = ' '.repeat(emptyLen)
-            insertText = `${hasComma ? '' : ','}${lineText.trim() ? '\n' : ''}${temp}${title}(newV, oldV){\n  ${temp}\n${temp}},`
-            insertPos = new Position(line - 1, lineText.length)
-            jumpLine = [line + 2, emptyLen + 2]
-          }
-          msg = `已在watch中添加: ${title} 方法`
-        }
-
+        commonFunction(ast, 'watch', loc, `${title}(newV, oldV)`)
         break
       }
       case 'scopedCss': {
@@ -806,6 +655,58 @@ export async function createInVue(activeText: string, title: string, prefixName:
         jumpToLine(jumpLine)
       })
     })
+  }
+  function commonFunction(ast: any, name: string, loc: any, _insertText = '') {
+    const data = getVue2ObjectName(ast, name)
+    if (!data) {
+      message.error(`需要事先定义好${name}对象`)
+      return
+    }
+    if (data.value.properties.some((prop: any) => prop.key.name === title)) {
+      message.error(`${name}中该方法名[${title}]已存在`)
+      return
+    }
+    if (atTop) {
+      const offset = loc.start.offset + data.value.loc.start.index + 1
+      const { line } = getPosition(offset)
+      const emptyLen = 4
+      const temp = ' '.repeat(emptyLen)
+      if (!_insertText)
+        _insertText = `${title}()`
+
+      insertText = `\n${temp}${_insertText}{\n  ${temp}\n${temp}}${data.value.properties.length === 0 ? '\n  ' : ','}`
+      const preLineText = getLineText(line)
+      const pix = preLineText.endsWith('},')
+        ? (preLineText.length - 2)
+        : preLineText.endsWith('}')
+          ? (preLineText.length - 1)
+          : preLineText.length
+      insertPos = new Position(line, pix)
+      jumpLine = [line + 3, emptyLen + 2]
+    }
+    else {
+      const offset = loc.start.offset + data.value.loc.end.index - 1
+      const { line } = getPosition(offset)
+      const preLineText = getLineText(line)
+      if (data.value.properties.length === 0 && /},?$/.test(preLineText)) {
+        const lineText = getLineText(line)
+        const emptyLen = 4
+        const temp = ' '.repeat(emptyLen)
+        insertText = `\n${temp}${title}(){\n  ${temp}\n${temp}}\n  `
+        insertPos = new Position(line, lineText.length - (preLineText.endsWith(',') ? 2 : 1))
+        jumpLine = [line + 3, emptyLen + 2]
+      }
+      else {
+        const lineText = getLineText(line - 1)
+        const hasComma = lineText.trim().slice(-1) === ','
+        const emptyLen = 4
+        const temp = ' '.repeat(emptyLen)
+        insertText = `${hasComma ? '' : ','}\n${temp}${title}(){\n  ${temp}\n${temp}}`
+        insertPos = new Position(line - 1, lineText.length)
+        jumpLine = [line + 2, emptyLen + 2]
+      }
+    }
+    msg = `已在${name}中添加: ${title} 方法`
   }
 }
 
