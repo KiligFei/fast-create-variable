@@ -44,3 +44,11 @@ Explain the function of this plug-in. Normally, when we write code, we write tem
 ## License
 
 [MIT](./license)
+
+## Sponsors
+
+<p align="center">
+  <a href="https://cdn.jsdelivr.net/gh/Simon-He95/sponsor/sponsors.svg">
+    <img src='https://cdn.jsdelivr.net/gh/Simon-He95/sponsor/sponsors.svg'/>
+  </a>
+</p>
