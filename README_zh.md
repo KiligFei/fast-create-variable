@@ -45,6 +45,3 @@
 
 [MIT](./license)
 
-## Sponsors
-
-![sponsors](https://cdn.jsdelivr.net/gh/Simon-He95/sponsor@main/sponsors.svg)
