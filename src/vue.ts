@@ -401,7 +401,7 @@ export async function createInVue(activeText: string, title: string, prefixName:
           endLine = line + 1
         }
 
-        const isDeep = await createSelect(['use deep scope', 'not deep scope'])
+        const isDeep = await createSelect(['not deep scope', 'use deep scope'])
         if (!isDeep)
           return
 
@@ -559,11 +559,11 @@ export async function createInVue(activeText: string, title: string, prefixName:
           endLine = line + 1
         }
 
-        const isDeep = await createSelect(['use deep scope', 'not deep scope'])
+        const isDeep = await createSelect(['not deep scope', 'use deep scope'])
         if (!isDeep)
           return
 
-        insertText = `${isDeep === 'use deep scope' ? '::v-deep ' : ''}${prefixName.includes('class') ? '.' : '#'}${title} {\n  \n}`
+        insertText += `${isDeep === 'use deep scope' ? '::v-deep ' : ''}${prefixName.includes('class') ? '.' : '#'}${title} {\n  \n}`
         if (!hasScopedCss) {
           insertText = `\n<style scoped>\n${insertText}\n</style>`
           jumpLine = [endLine + 3, insertText.length - 2]
@@ -571,7 +571,7 @@ export async function createInVue(activeText: string, title: string, prefixName:
         else {
           jumpLine = [endLine + 1, insertText.length - 2]
         }
-        insertPos = new Position(endLine - 1, 0)
+        insertPos = new Position(endLine - 1, hasScopedCss ? 0 : getLineText(endLine - 1).length)
         break
       }
       case 'defineProps': {
