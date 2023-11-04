@@ -213,7 +213,7 @@ export async function createInVue(activeText: string, title: string, prefixName:
   }
 
   if (prefixName.startsWith('v-model') || notFunctionPrefix.some(n => prefixName.includes(n)))
-    options = options.filter(item => !['function', 'methods'].includes(item))
+    options = options.filter(item => !['function', 'arrowFunction', 'methods', 'defineEmits'].includes(item))
 
   const v = await createSelect(options, {
     placeHolder: '选择快速创建的变量类型',
@@ -426,7 +426,7 @@ export async function createInVue(activeText: string, title: string, prefixName:
 
     const end_position = endOffset
       ? getPosition(endOffset + scriptSetup.loc.start.offset)
-      : new Position(endLine, 0)
+      : new Position(endLine - 1, 0)
 
     switch (v) {
       case 'ref': {
